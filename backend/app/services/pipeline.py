@@ -74,11 +74,36 @@ async def run_pipeline(session_id: str) -> None:
         fail_session(session_id, f"NFT generation failed: {str(exc)}")
         return
 
-    # ── Stage 3: IPFS Pinning (stub — active in Epic 4) ────────────────────────
-    advance_stage(session_id, PipelineStage.PINNING)
-    await asyncio.sleep(0.1)  # simulate async step; replace with Pinata call in Epic 4
-    # session.ipfs_result = await pinata.pin(...)
+    # ── Stage 3: IPFS Pinning (Pinata) ─────────────────────────────────────────
+    try:
+        advance_stage(session_id, PipelineStage.PINNING)
+        from app.services import ipfs as ipfs_service
+
+        gen = session.generation_result or {}
+        gif_path = gen.get("gif_path")
+
+        if not gif_path:
+            raise RuntimeError("No GIF path found in generation result.")
+
+        ipfs_result = await ipfs_service.pin_all(
+            gif_path=gif_path,
+            file_name=session.file_name,
+            audio_traits=session.audio_features or {},
+            visual_traits=gen.get("visual_traits", {}),
+            token_number=1,  # placeholder token number pre-mint; updated on-chain
+        )
+        session.ipfs_result = ipfs_result
+        logger.info(
+            f"[{session_id}] IPFS pinning complete — "
+            f"animation: {ipfs_result['animation_cid']}, "
+            f"metadata: {ipfs_result['metadata_cid']}"
+        )
+    except Exception as exc:
+        logger.error(f"[{session_id}] IPFS pinning failed: {exc}", exc_info=True)
+        fail_session(session_id, f"IPFS pinning failed: {str(exc)}")
+        return
 
     # ── Done ────────────────────────────────────────────────────────────────────
     advance_stage(session_id, PipelineStage.READY)
     logger.info(f"[{session_id}] Pipeline complete and ready.")
+

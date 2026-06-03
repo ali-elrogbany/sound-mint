@@ -6,30 +6,37 @@ import DropZone from '../components/DropZone'
 import WaveformPlayer from '../components/WaveformPlayer'
 import AnalyzingScreen from '../components/AnalyzingScreen'
 import NFTPreviewCard from '../components/NFTPreviewCard'
+import MintScreen from '../components/MintScreen'
+import SuccessScreen from '../components/SuccessScreen'
+import WalletButton from '../components/WalletButton'
 
-// Steps: 1=Upload, 2=Analyzing, 3=Preview, 4=Mint(stub), 5=Done(stub)
+// Steps: 1=Upload  2=Analyzing  3=Preview  4=Mint  5=Success
 export default function MintPage() {
   const [step, setStep] = useState(1)
   const [file, setFile] = useState(null)
   const [sessionId, setSessionId] = useState(null)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const [txHash, setTxHash] = useState(null)
+  const [tokenId, setTokenId] = useState(null)
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleFileAccepted = (uploadedFile, newSessionId) => {
     setFile(uploadedFile)
     setSessionId(newSessionId)
     setError(null)
-    setStep(2) // Move to analyzing step
+    setStep(2)
   }
 
   const handleAnalysisComplete = (pipelineResult) => {
     setResult(pipelineResult)
-    setStep(3) // Move to preview
+    setStep(3)
   }
 
   const handleError = (msg) => {
     setError(msg)
-    setStep(1) // Return to upload on error
+    setStep(1)
   }
 
   const handleRegenerate = () => {
@@ -38,26 +45,36 @@ export default function MintPage() {
     setSessionId(null)
     setResult(null)
     setError(null)
+    setTxHash(null)
+    setTokenId(null)
   }
 
   const handleProceedToMint = () => {
-    setStep(4) // Stub — Epic 4 (wallet integration)
+    setStep(4)
   }
+
+  const handleMintSuccess = (hash, id) => {
+    setTxHash(hash)
+    setTokenId(id)
+    setStep(5)
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
+
       {/* ── Nav ── */}
       <nav className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <Link to="/" className="font-bold text-xl gradient-text tracking-tight hover:opacity-80 transition-opacity">
+        <Link
+          to="/"
+          className="font-bold text-xl gradient-text tracking-tight hover:opacity-80 transition-opacity"
+        >
           ← SoundMint
         </Link>
-        {/* Wallet button placeholder — Epic 4 */}
-        <button
-          disabled
-          className="text-muted border border-white/10 rounded-full px-4 py-2 text-sm cursor-not-allowed"
-        >
-          Connect Wallet
-        </button>
+
+        {/* Live wallet button — replaces the disabled placeholder */}
+        <WalletButton />
       </nav>
 
       {/* ── Step Indicator ── */}
@@ -68,7 +85,8 @@ export default function MintPage() {
       {/* ── Step Content ── */}
       <main className="flex-1 flex flex-col items-center px-6 pb-12">
         <AnimatePresence mode="wait">
-          {/* Step 1 — Upload */}
+
+          {/* ── Step 1: Upload ── */}
           {step === 1 && (
             <motion.div
               key="upload"
@@ -83,6 +101,7 @@ export default function MintPage() {
                 <p className="text-muted">MP3 files only · Max 25 MB · Your audio stays private</p>
               </div>
 
+              {/* Error banner */}
               {error && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
@@ -94,7 +113,12 @@ export default function MintPage() {
                     <p className="font-medium">Something went wrong</p>
                     <p className="text-error/70 mt-0.5">{error}</p>
                   </div>
-                  <button onClick={() => setError(null)} className="ml-auto text-error/60 hover:text-error text-lg">×</button>
+                  <button
+                    onClick={() => setError(null)}
+                    className="ml-auto text-error/60 hover:text-error text-lg"
+                  >
+                    ×
+                  </button>
                 </motion.div>
               )}
 
@@ -112,7 +136,7 @@ export default function MintPage() {
             </motion.div>
           )}
 
-          {/* Step 2 — Analyzing */}
+          {/* ── Step 2: Analyzing ── */}
           {step === 2 && (
             <motion.div
               key="analyzing"
@@ -131,7 +155,7 @@ export default function MintPage() {
             </motion.div>
           )}
 
-          {/* Step 3 — Preview */}
+          {/* ── Step 3: Preview ── */}
           {step === 3 && result && (
             <motion.div
               key="preview"
@@ -143,7 +167,9 @@ export default function MintPage() {
             >
               <div className="text-center mb-8">
                 <h2 className="text-3xl font-bold mb-2">Your NFT Preview</h2>
-                <p className="text-muted">Your song's acoustic DNA has been transformed into unique generative art.</p>
+                <p className="text-muted">
+                  Your song's acoustic DNA has been transformed into unique generative art.
+                </p>
               </div>
               <NFTPreviewCard
                 result={result}
@@ -153,31 +179,44 @@ export default function MintPage() {
             </motion.div>
           )}
 
-          {/* Step 4 — Mint stub */}
-          {step === 4 && (
+          {/* ── Step 4: Mint ── */}
+          {step === 4 && result && (
             <motion.div
-              key="mint-stub"
+              key="mint"
               className="w-full max-w-2xl"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="glass-card p-10 text-center">
-                <div className="text-5xl mb-4">🔗</div>
-                <h2 className="text-2xl font-bold mb-3">Wallet & Minting</h2>
-                <p className="text-muted mb-6">
-                  Wallet integration and minting flow will be implemented in Epic 4.<br />
-                  Connect MetaMask to sign the transaction on Ethereum Sepolia.
-                </p>
-                <button
-                  onClick={handleRegenerate}
-                  className="text-primary border border-primary/30 hover:border-primary/60 rounded-full px-6 py-2 text-sm transition-all duration-200"
-                >
-                  ← Back to Preview
-                </button>
-              </div>
+              <MintScreen
+                result={result}
+                onSuccess={handleMintSuccess}
+                onError={handleError}
+                onBack={() => setStep(3)}
+              />
             </motion.div>
           )}
+
+          {/* ── Step 5: Success ── */}
+          {step === 5 && txHash && (
+            <motion.div
+              key="success"
+              className="w-full max-w-2xl"
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <SuccessScreen
+                txHash={txHash}
+                tokenId={tokenId}
+                result={result}
+                onReset={handleRegenerate}
+              />
+            </motion.div>
+          )}
+
         </AnimatePresence>
       </main>
     </div>
