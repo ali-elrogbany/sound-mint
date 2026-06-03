@@ -115,6 +115,9 @@ async def generate(
 
     launch_args = {
         "headless": True,
+        "handleSIGINT": False,
+        "handleSIGTERM": False,
+        "handleSIGHUP": False,
         "args": [
             "--no-sandbox",
             "--disable-setuid-sandbox",
