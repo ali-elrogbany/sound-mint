@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SoundMint Renderer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0D0D0D; overflow: hidden; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <!-- SOUND_PARAMS is injected by Python before rendering -->
+  <script>
+    window.SOUND_PARAMS = __SOUND_PARAMS__;
+    window.GIF_WIDTH    = __GIF_WIDTH__;
+    window.GIF_HEIGHT   = __GIF_HEIGHT__;
+  </script>
+  <!-- P5.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+  <!-- SoundMint particle sketch -->
+  <script src="/static/sketch.js"></script>
+</body>
+</html>
