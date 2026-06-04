@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import axios from 'axios'
+import { useNotifications } from '../context/NotificationContext'
 
 const STAGES = ['UPLOADED', 'ANALYZED', 'GENERATING_NFT', 'PINNING', 'READY']
 const STAGE_LABELS = {
@@ -27,6 +28,7 @@ export default function AnalyzingScreen({ sessionId, fileName, onComplete, onErr
   const intervalRef = useRef(null)
   const maxPolls = 120 // 4 minutes max (2s interval)
   const pollCount = useRef(0)
+  const { addNotification } = useNotifications()
 
   const fetchResult = useCallback(async (sid) => {
     const { data } = await axios.get(`/v1/result/${sid}`)
@@ -48,6 +50,11 @@ export default function AnalyzingScreen({ sessionId, fileName, onComplete, onErr
 
       if (data.status === 'failed') {
         clearInterval(intervalRef.current)
+        addNotification(
+          'error',
+          'NFT Generation Failed',
+          data.error || 'Pipeline failed. Please try uploading again.',
+        )
         onError(data.error || 'Pipeline failed.')
         return
       }
@@ -55,6 +62,13 @@ export default function AnalyzingScreen({ sessionId, fileName, onComplete, onErr
       if (data.status === 'ready' || data.stage === 'READY') {
         clearInterval(intervalRef.current)
         const result = await fetchResult(sessionId)
+        addNotification(
+          'pipeline',
+          'Your NFT Art is Ready! 🎨',
+          fileName
+            ? `"${fileName}" has been analyzed and your NFT artwork is generated. Ready to mint!`
+            : 'Your NFT artwork is generated. Ready to mint!',
+        )
         onComplete(result)
         return
       }

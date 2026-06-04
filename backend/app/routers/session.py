@@ -7,8 +7,10 @@ GET /v1/result/{session_id} — Completed result (ready state only)
 """
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from app.session_store import PipelineStage, get_session
+from app.services.ipfs import pin_metadata
 
 router = APIRouter()
 
@@ -95,4 +97,46 @@ async def get_result(session_id: str):
             "brightness": round(audio.get("normalized", {}).get("brightness", 0) * 255),
             "durationSeconds": round(audio.get("duration_seconds", 0)),
         },
+    }
+
+class RenameRequest(BaseModel):
+    name: str
+    token_number: int = 1
+
+@router.patch("/rename/{session_id}")
+async def rename_nft(session_id: str, req: RenameRequest):
+    session = get_session(session_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"error": "SESSION_NOT_FOUND"})
+
+    if session.current_stage != PipelineStage.READY:
+        return JSONResponse(status_code=400, content={"error": "NOT_READY", "message": "Session is not ready yet."})
+
+    ipfs = session.ipfs_result
+    if not ipfs or "animation_cid" not in ipfs:
+        return JSONResponse(status_code=400, content={"error": "NO_IPFS_DATA", "message": "No IPFS data available for renaming."})
+
+    # Repin metadata with new name
+    try:
+        new_metadata_cid = await pin_metadata(
+            token_number=req.token_number,
+            animation_cid=ipfs["animation_cid"],
+            audio_traits=session.audio_features or {},
+            visual_traits=(session.generation_result or {}).get("visual_traits", {}),
+            file_name=session.file_name,
+            audio_cid=ipfs.get("audio_cid"),
+            custom_name=req.name,
+        )
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": "REPIN_FAILED", "message": str(e)})
+
+    # Update session with new CID
+    session.ipfs_result["metadata_cid"] = new_metadata_cid
+    session.ipfs_result["token_uri"] = f"ipfs://{new_metadata_cid}"
+
+    return {
+        "session_id": session_id,
+        "token_uri": session.ipfs_result["token_uri"],
+        "metadata_cid": new_metadata_cid,
+        "name": req.name,
     }

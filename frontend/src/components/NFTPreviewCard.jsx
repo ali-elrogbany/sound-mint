@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import TraitsBadge from './TraitsBadge'
 
-export default function NFTPreviewCard({ result, onRegenerate, onMint }) {
+export default function NFTPreviewCard({ result, customName, onNameChange, onRegenerate, onMint }) {
   const { animation_url, audio_traits, visual_traits, file_name } = result || {}
 
   // Merge audio + visual traits for badge display
@@ -55,10 +55,31 @@ export default function NFTPreviewCard({ result, onRegenerate, onMint }) {
         </div>
       </motion.div>
 
-      {/* File name */}
       <div className="text-center">
         <p className="text-muted text-sm">Generated from</p>
-        <p className="font-semibold text-text truncate">{file_name || 'your track'}</p>
+        <p className="font-semibold text-text truncate mb-4">{file_name || 'your track'}</p>
+        
+        <div className="max-w-xs mx-auto text-left">
+          <label className="block text-sm font-semibold text-white/90 mb-1 flex justify-between">
+            <span>Name your NFT</span>
+            <span className="text-muted font-normal text-xs mt-0.5">✏️ Optional</span>
+          </label>
+          <input
+            type="text"
+            value={customName}
+            onChange={(e) => onNameChange(e.target.value.slice(0, 50))}
+            placeholder="e.g. SoundMint #1"
+            className="w-full bg-surface border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-primary/50 transition-colors"
+          />
+          <div className="flex justify-between items-start mt-1.5 px-1">
+            <p className="text-[10px] text-muted/80 leading-tight flex-1 pr-2">
+              This name is permanently stored on IPFS. It cannot be changed after minting.
+            </p>
+            <span className="text-[10px] text-muted/60 font-mono mt-0.5 whitespace-nowrap">
+              {customName.length}/50
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Trait badges */}

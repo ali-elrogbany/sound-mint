@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useReadContract, useWriteContract, useAccount, usePublicClient } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../config/contract';
+import { useNotifications } from '../context/NotificationContext';
 
 export function useMarketplace(tokenId) {
     const { address } = useAccount();
     const publicClient = usePublicClient();
     const { writeContractAsync } = useWriteContract();
+    const { addNotification } = useNotifications();
 
     // ── Reads ──────────────────────────────────────────────────────────────
 
@@ -76,6 +78,12 @@ export function useMarketplace(tokenId) {
             args: [BigInt(tokenId), priceWei]
         });
         await publicClient.waitForTransactionReceipt({ hash: listHash });
+        addNotification(
+            'marketplace',
+            'Token Listed for Sale 🏷️',
+            `Token #${tokenId} is now listed for ${priceEth} ETH.`,
+            { link: `/gallery/token/${tokenId}` }
+        );
         await refetchAll();
     };
 
@@ -88,6 +96,12 @@ export function useMarketplace(tokenId) {
             args: [BigInt(tokenId)]
         });
         await publicClient.waitForTransactionReceipt({ hash });
+        addNotification(
+            'info',
+            'Listing Cancelled',
+            `Your listing for Token #${tokenId} has been cancelled.`,
+            { link: `/gallery/token/${tokenId}` }
+        );
         await refetchAll();
     };
 
@@ -102,6 +116,12 @@ export function useMarketplace(tokenId) {
             value: priceWei
         });
         await publicClient.waitForTransactionReceipt({ hash });
+        addNotification(
+            'success',
+            'Token Purchased! 🛒',
+            `You successfully bought Token #${tokenId} for ${priceEth} ETH.`,
+            { link: `/gallery/token/${tokenId}` }
+        );
         await refetchAll();
     };
 
@@ -116,6 +136,12 @@ export function useMarketplace(tokenId) {
             value: amountWei
         });
         await publicClient.waitForTransactionReceipt({ hash });
+        addNotification(
+            'marketplace',
+            'Offer Placed 💰',
+            `Your offer of ${amountEth} ETH on Token #${tokenId} has been submitted.`,
+            { link: `/gallery/token/${tokenId}` }
+        );
         await refetchAll();
     };
 
@@ -128,6 +154,12 @@ export function useMarketplace(tokenId) {
             args: [BigInt(tokenId)]
         });
         await publicClient.waitForTransactionReceipt({ hash });
+        addNotification(
+            'info',
+            'Offer Cancelled',
+            `Your offer on Token #${tokenId} has been withdrawn.`,
+            { link: `/gallery/token/${tokenId}` }
+        );
         await refetchAll();
     };
 
@@ -140,6 +172,12 @@ export function useMarketplace(tokenId) {
             args: [BigInt(tokenId), offererAddress]
         });
         await publicClient.waitForTransactionReceipt({ hash });
+        addNotification(
+            'success',
+            'Offer Accepted! ✅',
+            `You accepted an offer on Token #${tokenId}. The sale is complete.`,
+            { link: `/gallery/token/${tokenId}` }
+        );
         await refetchAll();
     };
 

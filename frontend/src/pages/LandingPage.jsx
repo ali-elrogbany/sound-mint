@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import NotificationBell from '../components/NotificationBell'
 
 const features = [
   {
@@ -43,12 +44,15 @@ export default function LandingPage() {
           </div>
           <Link to="/gallery" className="text-sm font-medium text-muted hover:text-white transition-colors hidden sm:block">Gallery</Link>
         </div>
-        <Link
-          to="/mint"
-          className="bg-primary hover:bg-primary/80 text-white font-semibold px-5 py-2 rounded-full text-sm transition-all duration-200 hover:shadow-glow-primary"
-        >
-          Start Minting
-        </Link>
+        <div className="flex items-center gap-3">
+          <NotificationBell />
+          <Link
+            to="/mint"
+            className="bg-primary hover:bg-primary/80 text-white font-semibold px-5 py-2 rounded-full text-sm transition-all duration-200 hover:shadow-glow-primary"
+          >
+            Start Minting
+          </Link>
+        </div>
       </nav>
 
       {/* ── Hero ── */}

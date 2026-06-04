@@ -112,6 +112,7 @@ async def pin_metadata(
     visual_traits: dict,
     file_name: str,
     audio_cid: str | None = None,
+    custom_name: str | None = None,
 ) -> str:
     """
     Build an ERC-721 / OpenSea-compatible metadata JSON and pin it to IPFS.
@@ -150,8 +151,10 @@ async def pin_metadata(
     brightness_norm = norm.get("brightness", 0.5)
     brightness_label = "Dark" if brightness_norm < 0.33 else ("Bright" if brightness_norm > 0.66 else "Mid")
 
+    nft_name = custom_name if custom_name and custom_name.strip() else f"SoundMint #{token_number}"
+
     metadata = {
-        "name": f"SoundMint #{token_number}",
+        "name": nft_name,
         "description": (
             f"A unique animated NFT generated from the acoustic DNA of a musical track. "
             f"BPM: {bpm_rounded} | Key: {key_name} | Energy: {energy_label}. "

@@ -6,19 +6,24 @@ import { sepolia } from 'wagmi/chains'
 import WalletButton from './WalletButton'
 import TxToast from './TxToast'
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../config/contract.js'
+import { useNotifications } from '../context/NotificationContext'
 
 /**
  * MintScreen — Step 4 of the minting flow
  *
  * Props:
  *  - result     {object}   — pipeline result from backend (has token_uri, on_chain_traits, animation_url)
+ *  - customName {string}   — custom name chosen by user
  *  - onSuccess  {function} — called with (txHash, tokenId) on successful mint
  *  - onError    {function} — called with (message) on error
  *  - onBack     {function} — navigate back to preview (step 3)
  */
-export default function MintScreen({ result, onSuccess, onError, onBack }) {
+import axios from 'axios'
+
+export default function MintScreen({ result, customName, onSuccess, onError, onBack }) {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
+  const { addNotification } = useNotifications()
 
   const isOnSepolia = chainId === sepolia.id
   const canMint = isConnected && isOnSepolia
@@ -87,17 +92,58 @@ export default function MintScreen({ result, onSuccess, onError, onBack }) {
       message: tokenId !== '?' ? `Token #${tokenId} is now on Sepolia.` : 'Transaction confirmed on Sepolia.',
       txHash: receipt.transactionHash,
     })
+    // Persist to notification center
+    addNotification(
+      'success',
+      `NFT Minted! 🎉`,
+      tokenId !== '?'
+        ? `Token #${tokenId} has been minted and is now permanently on Ethereum Sepolia.`
+        : 'Your NFT has been confirmed on Ethereum Sepolia.',
+      {
+        link: tokenId !== '?' ? `/gallery/token/${tokenId}` : null,
+        externalLink: `https://sepolia.etherscan.io/tx/${receipt.transactionHash}`,
+      }
+    )
     onSuccess?.(receipt.transactionHash, tokenId)
   }, [isConfirmed, receipt, onSuccess])
 
   // ── Handle mint click ─────────────────────────────────────────────────────
-  const handleMint = useCallback(() => {
+  const handleMint = useCallback(async () => {
     if (!result) return
 
     const traits = result.on_chain_traits || {}
+    let finalTokenUri = result.token_uri || ''
 
     // Derive a genre label from audio traits for the on-chain genre field
     const genreLabel = deriveGenre(result.audio_traits)
+
+    setToast({
+      show: true,
+      type: 'pending',
+      title: 'Preparing metadata…',
+      message: 'Processing your custom name on IPFS.',
+    })
+
+    if (customName && customName.trim().length > 0) {
+      try {
+        const res = await axios.patch(`/v1/rename/${result.session_id}`, {
+          name: customName.trim(),
+          token_number: 1, // Optional: backend might ignore or handle it
+        })
+        if (res.data && res.data.token_uri) {
+          finalTokenUri = res.data.token_uri
+        }
+      } catch (err) {
+        setToast({
+          show: true,
+          type: 'error',
+          title: 'Metadata Error',
+          message: 'Failed to update NFT name. Try again.',
+        })
+        addNotification('error', 'Metadata Error', 'Failed to update NFT name.')
+        return
+      }
+    }
 
     setToast({
       show: true,
@@ -113,7 +159,7 @@ export default function MintScreen({ result, onSuccess, onError, onBack }) {
         functionName: 'mint',
         args: [
           address,
-          result.token_uri || '',
+          finalTokenUri,
           {
             bpm: Math.round(traits.bpm || 0),           // uint16
             dominantKey: traits.dominantKey ?? 0,        // uint8
@@ -133,10 +179,11 @@ export default function MintScreen({ result, onSuccess, onError, onBack }) {
             title: 'Mint Failed',
             message: msg,
           })
+          addNotification('error', 'Mint Failed', msg)
         },
       }
     )
-  }, [address, result, mintPriceWei, writeContract])
+  }, [address, result, customName, mintPriceWei, writeContract, addNotification])
 
   // ── Derived UI state ──────────────────────────────────────────────────────
   const isBusy = isWritePending || isConfirming
@@ -241,12 +288,18 @@ export default function MintScreen({ result, onSuccess, onError, onBack }) {
             </div>
           </div>
           <div>
-            <p className="font-semibold text-text">SoundMint NFT</p>
+            <p className="font-semibold text-text">{customName || 'SoundMint NFT'}</p>
             <p className="text-xs text-muted mt-0.5">
               {result?.audio_traits?.display?.key_name
                 ? `Key: ${result.audio_traits.display.key_name} · BPM: ${result.audio_traits.display.bpm_rounded}`
                 : 'Generative Audio NFT'}
             </p>
+            {customName && (
+              <div className="mt-2 inline-flex items-center gap-1.5 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-[10px] text-muted font-medium">
+                <span>🔒</span>
+                <span>Name is permanent after minting</span>
+              </div>
+            )}
           </div>
         </div>
 

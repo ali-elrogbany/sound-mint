@@ -9,6 +9,7 @@ import NFTPreviewCard from '../components/NFTPreviewCard'
 import MintScreen from '../components/MintScreen'
 import SuccessScreen from '../components/SuccessScreen'
 import WalletButton from '../components/WalletButton'
+import NotificationBell from '../components/NotificationBell'
 
 // Steps: 1=Upload  2=Analyzing  3=Preview  4=Mint  5=Success
 export default function MintPage() {
@@ -19,6 +20,7 @@ export default function MintPage() {
   const [error, setError] = useState(null)
   const [txHash, setTxHash] = useState(null)
   const [tokenId, setTokenId] = useState(null)
+  const [customName, setCustomName] = useState('')
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -45,8 +47,10 @@ export default function MintPage() {
     setSessionId(null)
     setResult(null)
     setError(null)
+    setError(null)
     setTxHash(null)
     setTokenId(null)
+    setCustomName('')
   }
 
   const handleProceedToMint = () => {
@@ -74,7 +78,10 @@ export default function MintPage() {
         </Link>
 
         {/* Live wallet button — replaces the disabled placeholder */}
-        <WalletButton />
+        <div className="flex items-center gap-3">
+          <NotificationBell />
+          <WalletButton />
+        </div>
       </nav>
 
       {/* ── Step Indicator ── */}
@@ -173,6 +180,8 @@ export default function MintPage() {
               </div>
               <NFTPreviewCard
                 result={result}
+                customName={customName}
+                onNameChange={setCustomName}
                 onRegenerate={handleRegenerate}
                 onMint={handleProceedToMint}
               />
@@ -191,6 +200,7 @@ export default function MintPage() {
             >
               <MintScreen
                 result={result}
+                customName={customName}
                 onSuccess={handleMintSuccess}
                 onError={handleError}
                 onBack={() => setStep(3)}

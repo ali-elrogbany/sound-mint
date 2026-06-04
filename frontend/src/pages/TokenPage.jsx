@@ -3,6 +3,7 @@ import { useAccount } from 'wagmi';
 import { CONTRACT_ADDRESS } from '../config/contract';
 import { KEY_NAMES, energyLabel, bpmLabel, brightnessLabel, ipfsToHttp } from '../lib/constants';
 import WalletButton from '../components/WalletButton';
+import NotificationBell from '../components/NotificationBell';
 import { useTokenData } from '../hooks/useTokenData';
 import TraitsBadge from '../components/TraitsBadge';
 import AudioPlayer from '../components/AudioPlayer';
@@ -102,7 +103,10 @@ export default function TokenPage() {
                     <Link to="/mint" className="text-sm font-medium text-muted hover:text-white transition-colors">Mint</Link>
                     <Link to="/gallery" className="text-sm font-medium text-primary">Gallery</Link>
                 </div>
-                <WalletButton />
+                <div className="flex items-center gap-3">
+                    <NotificationBell />
+                    <WalletButton />
+                </div>
             </nav>
 
             <main className="flex-1 max-w-5xl w-full mx-auto px-6 py-10 grid grid-cols-1 md:grid-cols-2 gap-12">
