@@ -18,7 +18,7 @@ export default function SuccessScreen({ txHash, tokenId, result, onReset }) {
   const gradientBorder = `linear-gradient(135deg, ${palette[0]}, ${palette[1]})`
 
   const etherscanUrl = `https://sepolia.etherscan.io/tx/${txHash}`
-  const etherscanTokenUrl = `https://sepolia.etherscan.io/token/${CONTRACT_ADDRESS}?a=${tokenId}`
+  const etherscanNftUrl = `https://sepolia.etherscan.io/nft/${CONTRACT_ADDRESS}/${tokenId}`
 
   // ── Confetti canvas ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -178,7 +178,7 @@ export default function SuccessScreen({ txHash, tokenId, result, onReset }) {
 
         <a
           id="etherscan-token-link"
-          href={etherscanTokenUrl}
+          href={etherscanNftUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="glass-card flex flex-col items-center justify-center gap-2 py-4 px-3 text-center hover:border-secondary/40 transition-all duration-200 hover:shadow-glow-secondary group"

@@ -1,6 +1,8 @@
 import { useRef, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import axios from 'axios'
+import { usePublicClient } from 'wagmi'
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../config/contract.js'
 
 const MAX_SIZE_BYTES = 25 * 1024 * 1024
 
@@ -21,6 +23,7 @@ export default function DropZone({ onFileAccepted, onError }) {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [uploadedFile, setUploadedFile] = useState(null)
+  const publicClient = usePublicClient()
 
   const handleUpload = useCallback(async (file) => {
     const validationError = validateFile(file)
@@ -36,6 +39,40 @@ export default function DropZone({ onFileAccepted, onError }) {
     const formData = new FormData()
     formData.append('file', file)
 
+    let tokenId = 1
+    try {
+      if (publicClient && CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+        let low = 1
+        let high = 100000
+        let candidate = 1
+        while (low <= high) {
+          const mid = Math.floor((low + high) / 2)
+          try {
+            const uri = await publicClient.readContract({
+              address: CONTRACT_ADDRESS,
+              abi: CONTRACT_ABI,
+              functionName: 'tokenURIs',
+              args: [BigInt(mid)],
+            })
+            if (uri && uri !== '') {
+              low = mid + 1
+            } else {
+              candidate = mid
+              high = mid - 1
+            }
+          } catch {
+            candidate = mid
+            high = mid - 1
+          }
+        }
+        tokenId = candidate
+      }
+    } catch (e) {
+      console.warn('Failed to fetch next tokenId from contract, defaulting to 1', e)
+    }
+
+    formData.append('token_id', tokenId)
+
     try {
       const response = await axios.post('/v1/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -50,7 +87,7 @@ export default function DropZone({ onFileAccepted, onError }) {
       setUploading(false)
       setUploadedFile(null)
     }
-  }, [onFileAccepted, onError])
+  }, [onFileAccepted, onError, publicClient])
 
   const handleDrop = useCallback((e) => {
     e.preventDefault()
