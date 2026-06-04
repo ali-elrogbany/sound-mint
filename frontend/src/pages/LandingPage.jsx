@@ -36,9 +36,12 @@ export default function LandingPage() {
     <div className="min-h-screen bg-bg flex flex-col">
       {/* ── Nav ── */}
       <nav className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <div className="flex items-center gap-2">
-          <SoundwaveLoader />
-          <span className="font-bold text-xl tracking-tight gradient-text ml-2">SoundMint</span>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <SoundwaveLoader />
+            <span className="font-bold text-xl tracking-tight gradient-text ml-2">SoundMint</span>
+          </div>
+          <Link to="/gallery" className="text-sm font-medium text-muted hover:text-white transition-colors hidden sm:block">Gallery</Link>
         </div>
         <Link
           to="/mint"

@@ -2,11 +2,13 @@
 
 ### MVP & Proof of Concept
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Status:** Draft  
 **Date:** June 2026  
 **Author:** Project Owner  
 **Classification:** Internal — Confidential
+
+> **v1.1 Change Note:** OpenSea testnet support has been deprecated. All post-mint NFT viewing, verification, and sharing is now handled by the SoundMint native NFT Gallery (`/gallery`). References to OpenSea have been replaced throughout.
 
 ---
 
@@ -34,6 +36,7 @@
 13. [Smart Contract Specification](#13-smart-contract-specification)
 14. [NFT Metadata Standard](#14-nft-metadata-standard)
 15. [UI/UX Requirements](#15-uiux-requirements)
+    - 15.5 [NFT Gallery](#155-nft-gallery)
 16. [Security Requirements](#16-security-requirements)
 17. [Testing Requirements](#17-testing-requirements)
 18. [Development Roadmap & Milestones](#18-development-roadmap--milestones)
@@ -99,7 +102,7 @@ The MVP is considered successful when:
 
 - Genre classification using ML models
 - Social features (profiles, galleries, sharing)
-- Secondary marketplace integration (beyond OpenSea compatibility)
+- Secondary marketplace integration (external platforms such as OpenSea or LooksRare)
 - Multiple audio formats (WAV, FLAC, AAC)
 - Batch minting
 - Audio playback of original song in NFT viewer
@@ -217,27 +220,39 @@ The MVP is considered successful when:
 
 **US-007** — As a user, I want to mint my generated NFT by paying a small fee so that it is permanently recorded on the blockchain.
 
-| Acceptance Criteria                                                                                     |
-| ------------------------------------------------------------------------------------------------------- |
-| AC1: The mint fee (0.5 MATIC for MVP testnet; TBD for mainnet) is displayed clearly before confirmation |
-| AC2: Estimated gas cost is shown (fetched dynamically)                                                  |
-| AC3: The user clicks "Mint NFT" and confirms the transaction in MetaMask                                |
-| AC4: A transaction hash is returned and displayed with a link to Etherscan (Sepolia)                    |
-| AC5: A success screen shows the minted token ID and a link to view on OpenSea (Sepolia testnet)         |
-| AC6: If the transaction fails, a clear error message is shown with a "Try Again" option                 |
+| Acceptance Criteria                                                                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------- |
+| AC1: The mint fee (0.5 MATIC for MVP testnet; TBD for mainnet) is displayed clearly before confirmation                          |
+| AC2: Estimated gas cost is shown (fetched dynamically)                                                                           |
+| AC3: The user clicks "Mint NFT" and confirms the transaction in MetaMask                                                         |
+| AC4: A transaction hash is returned and displayed with a link to Etherscan (Sepolia)                                             |
+| AC5: A success screen shows the minted token ID and a link to view the NFT on the SoundMint Gallery (`/gallery/token/{tokenId}`) |
+| AC6: If the transaction fails, a clear error message is shown with a "Try Again" option                                          |
 
 ---
 
 ### Epic 5 — Post-Mint
 
-**US-008** — As a user, I want to view my minted NFT on OpenSea so I can verify it and share it.
+**US-008** — As a user, I want to view my minted NFT on the SoundMint Gallery so I can verify it and share it.
 
-| Acceptance Criteria                                                                  |
-| ------------------------------------------------------------------------------------ |
-| AC1: A direct link to the token on OpenSea testnet is provided after successful mint |
-| AC2: The NFT displays the correct animation, name, and attributes on OpenSea         |
+| Acceptance Criteria                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------- |
+| AC1: After a successful mint, a direct link to `/gallery/token/{tokenId}` is displayed on the success screen            |
+| AC2: The gallery token page displays the looping animation, NFT name, token ID, and all on-chain audio trait attributes |
+| AC3: The page displays the minting wallet address and a link to the transaction on Etherscan (Sepolia)                  |
+| AC4: A "Share" button generates a shareable URL to the token's gallery page                                             |
+| AC5: The gallery page is publicly accessible (no wallet connection required to view)                                    |
 
 ---
+
+**US-009** — As a user, I want to browse all NFTs minted on SoundMint so I can explore the collection.
+
+| Acceptance Criteria                                                                                 |
+| --------------------------------------------------------------------------------------------------- |
+| AC1: The `/gallery` page displays a paginated grid of all minted tokens, most recent first          |
+| AC2: Each card shows the animation thumbnail, token ID, dominant key, BPM, and energy level         |
+| AC3: Clicking a card navigates to the individual token page (`/gallery/token/{tokenId}`)            |
+| AC4: A wallet-connected user can filter the gallery to show only their own tokens ("My Collection") |
 
 ## 6. System Architecture Overview
 
@@ -396,14 +411,16 @@ The MVP is considered successful when:
 
 **FR-FE-001:** The frontend SHALL implement the following screens/views:
 
-| Screen    | Path             | Description                                    |
-| --------- | ---------------- | ---------------------------------------------- |
-| Landing   | `/`              | Hero, CTA to start minting, brief explainer    |
-| Upload    | `/mint`          | Drag-and-drop MP3 upload                       |
-| Analyzing | `/mint` (step 2) | Loading state with animated progress indicator |
-| Preview   | `/mint` (step 3) | NFT animation preview + traits display         |
-| Mint      | `/mint` (step 4) | Wallet connection + mint button + fee display  |
-| Success   | `/mint/success`  | Transaction hash, OpenSea link, share options  |
+| Screen    | Path                      | Description                                                         |
+| --------- | ------------------------- | ------------------------------------------------------------------- |
+| Landing   | `/`                       | Hero, CTA to start minting, brief explainer                         |
+| Upload    | `/mint`                   | Drag-and-drop MP3 upload                                            |
+| Analyzing | `/mint` (step 2)          | Loading state with animated progress indicator                      |
+| Preview   | `/mint` (step 3)          | NFT animation preview + traits display                              |
+| Mint      | `/mint` (step 4)          | Wallet connection + mint button + fee display                       |
+| Success   | `/mint/success`           | Transaction hash, Gallery link, Etherscan link, share options       |
+| Gallery   | `/gallery`                | Paginated grid of all minted tokens; filterable by connected wallet |
+| Token     | `/gallery/token/:tokenId` | Individual NFT page: animation, traits, mint info, share button     |
 
 **FR-FE-002:** The frontend SHALL be fully responsive (mobile, tablet, desktop).
 
@@ -763,7 +780,77 @@ Retrieve the completed pipeline result, including IPFS CIDs and visual traits.
 
 Backend health check.
 
-**Response 200:** `{ "status": "ok", "version": "1.0.0" }`
+**Response 200:** `{ "status": "ok", "version": "1.1.0" }`
+
+---
+
+### GET `/gallery/tokens`
+
+Returns a paginated list of all minted tokens for the Gallery grid. Data is assembled by reading on-chain events (`Minted`) and resolving IPFS metadata.
+
+**Query params:** `page` (default: 1), `limit` (default: 25, max: 100), `owner` (optional wallet address for "My Collection" filter)
+
+**Response 200:**
+
+```json
+{
+    "page": 1,
+    "limit": 25,
+    "total": 142,
+    "tokens": [
+        {
+            "tokenId": 42,
+            "name": "SoundMint #42",
+            "animation_url": "https://gateway.pinata.cloud/ipfs/QmAnimationCID",
+            "traits": {
+                "bpm": 128,
+                "dominantKey": "G",
+                "energyLabel": "Medium",
+                "brightnessLabel": "Mid",
+                "shapeStyle": "Polygons",
+                "animationSpeed": "Fast"
+            },
+            "owner": "0x1234...abcd",
+            "mintedAt": "2026-06-01T14:32:00Z",
+            "txHash": "0xabc..."
+        }
+    ]
+}
+```
+
+---
+
+### GET `/gallery/tokens/{tokenId}`
+
+Returns full detail for a single token, including resolved IPFS metadata and on-chain traits.
+
+**Response 200:**
+
+```json
+{
+    "tokenId": 42,
+    "name": "SoundMint #42",
+    "description": "...",
+    "animation_url": "https://gateway.pinata.cloud/ipfs/QmAnimationCID",
+    "metadata_url": "https://gateway.pinata.cloud/ipfs/QmMetadataCID",
+    "token_uri": "ipfs://QmMetadataCID",
+    "on_chain_traits": {
+        "bpm": 128,
+        "dominantKey": 7,
+        "energyLevel": 148,
+        "brightness": 107,
+        "durationSeconds": 213
+    },
+    "attributes": [ ... ],
+    "owner": "0xOwnerAddress",
+    "contract": "0xContractAddress",
+    "txHash": "0xMintTxHash",
+    "mintedAt": "2026-06-01T14:32:00Z",
+    "etherscanUrl": "https://sepolia.etherscan.io/tx/0xMintTxHash"
+}
+```
+
+**Response 404:** Token not found
 
 ---
 
@@ -834,7 +921,7 @@ networks: {
 
 ## 14. NFT Metadata Standard
 
-The metadata JSON SHALL comply with the [OpenSea Metadata Standard](https://docs.opensea.io/docs/metadata-standards) and ERC-721 Metadata Extension.
+The metadata JSON SHALL comply with the [ERC-721 Metadata Extension](https://eips.ethereum.org/EIPS/eip-721) and follow the widely-adopted attributes schema (compatible with ERC-721 indexers and future marketplace integrations).
 
 ### Template
 
@@ -862,7 +949,7 @@ The metadata JSON SHALL comply with the [OpenSea Metadata Standard](https://docs
 
 ### Attribute Discretization (for Rarity)
 
-Continuous numeric features are discretized into named labels to support OpenSea rarity ranking:
+Continuous numeric features are discretized into named labels to support rarity display on the SoundMint Gallery and future marketplace integrations:
 
 | Trait           | Raw Range                       | Labels                              |
 | --------------- | ------------------------------- | ----------------------------------- |
@@ -911,6 +998,30 @@ Continuous numeric features are discretized into named labels to support OpenSea
 - **MintButton:** Large CTA, disabled until wallet connected; shows fee + estimated gas
 - **TxToast:** Slide-in notification with transaction hash link and success/failure state
 
+### 15.5 NFT Gallery
+
+The Gallery is the platform-native replacement for OpenSea testnet viewing. It must feel like a first-class part of the product, not a fallback.
+
+**Gallery Grid (`/gallery`)**
+
+- Dark-themed card grid, 3 columns on desktop, 2 on tablet, 1 on mobile
+- Each card shows: looping GIF thumbnail (auto-play, muted), token ID badge, dominant key pill, BPM, energy label
+- Infinite scroll or pagination (25 tokens per page)
+- "My Collection" toggle (visible only when wallet connected) — filters to `ownerOf == connectedAddress`
+- Cards link to `/gallery/token/:tokenId`
+
+**Token Detail Page (`/gallery/token/:tokenId`)**
+
+- Full-width animated GIF playback at 600×600px (or responsive max-width)
+- NFT name (`SoundMint #tokenId`) as page heading
+- Trait badges section: BPM, Key, Energy, Brightness, Shape Style, Palette, Animation Speed, Duration
+- On-chain info: Token ID, Contract Address (linked to Etherscan), Minted by (truncated wallet, linked to Etherscan address), Tx Hash (linked to Etherscan tx)
+- IPFS links: animation CID and metadata CID (via Pinata gateway)
+- "Share" button: copies the page URL to clipboard, shows a toast confirmation
+- "Mint Another" CTA linking back to `/mint`
+
+**Data source:** The Gallery reads on-chain data by calling `tokenURI(tokenId)` and `getTraits(tokenId)` on the deployed `SoundMint.sol` contract, then resolves the IPFS metadata JSON via the Pinata gateway. No separate database is required for MVP.
+
 ---
 
 ## 16. Security Requirements
@@ -957,13 +1068,13 @@ Continuous numeric features are discretized into named labels to support OpenSea
 
 ### 17.1 Unit Tests
 
-| Module                | What to Test                                                           |
-| --------------------- | ---------------------------------------------------------------------- |
-| Audio Analysis        | Feature extraction produces expected value ranges for known test files |
-| Feature Normalization | Boundary values (0, max) normalize to 0.0 and 1.0                      |
-| Trait Mapping         | Each audio feature correctly maps to expected visual parameter         |
-| Metadata Builder      | Output JSON is valid and matches OpenSea schema                        |
-| Smart Contract        | `mint()`, `tokenURI()`, `setMintPrice()`, `withdraw()`, access control |
+| Module                | What to Test                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| Audio Analysis        | Feature extraction produces expected value ranges for known test files               |
+| Feature Normalization | Boundary values (0, max) normalize to 0.0 and 1.0                                    |
+| Trait Mapping         | Each audio feature correctly maps to expected visual parameter                       |
+| Metadata Builder      | Output JSON is valid ERC-721 metadata and renders correctly in the SoundMint Gallery |
+| Smart Contract        | `mint()`, `tokenURI()`, `setMintPrice()`, `withdraw()`, access control               |
 
 ### 17.2 Integration Tests
 
@@ -978,12 +1089,12 @@ Continuous numeric features are discretized into named labels to support OpenSea
 
 ### 17.3 End-to-End Tests (Manual for MVP)
 
-| Test Case       | Steps                                                  | Pass Criteria                                        |
-| --------------- | ------------------------------------------------------ | ---------------------------------------------------- |
-| Full happy path | Upload MP3 → analyze → preview → connect wallet → mint | NFT visible on testnet OpenSea with correct metadata |
-| Wrong network   | Connect wallet on Ethereum mainnet, attempt mint       | Network switch prompt appears                        |
-| Low gas         | Attempt mint with < mintPrice                          | MetaMask shows revert reason                         |
-| Different songs | Mint 3 different genres                                | Visually distinct NFTs produced                      |
+| Test Case       | Steps                                                  | Pass Criteria                                                        |
+| --------------- | ------------------------------------------------------ | -------------------------------------------------------------------- |
+| Full happy path | Upload MP3 → analyze → preview → connect wallet → mint | NFT visible on SoundMint Gallery with correct animation and metadata |
+| Wrong network   | Connect wallet on Ethereum mainnet, attempt mint       | Network switch prompt appears                                        |
+| Low gas         | Attempt mint with < mintPrice                          | MetaMask shows revert reason                                         |
+| Different songs | Mint 3 different genres                                | Visually distinct NFTs produced                                      |
 
 ### 17.4 Smart Contract Test Coverage Target
 
@@ -1055,7 +1166,9 @@ Continuous numeric features are discretized into named labels to support OpenSea
 - [ ] NFT preview screen (GIF + traits)
 - [ ] wagmi wallet connection + network detection
 - [ ] Mint flow + MetaMask transaction
-- [ ] Success screen + Etherscan (Sepolia) / OpenSea links
+- [ ] Success screen + Etherscan (Sepolia) link + SoundMint Gallery token link
+- [ ] Gallery grid page (`/gallery`) — paginated token cards, "My Collection" filter
+- [ ] Token detail page (`/gallery/token/:tokenId`) — animation, traits, on-chain info, share button
 - [ ] Error states for every step
 - [ ] Responsive layout QA
 
@@ -1123,6 +1236,6 @@ Continuous numeric features are discretized into named labels to support OpenSea
 
 ---
 
-_Document End — SoundMint PRD v1.0_
+_Document End — SoundMint PRD v1.1_
 
 _This document is a living artifact. Updates should be versioned and dated. All major changes require sign-off from the Project Owner._

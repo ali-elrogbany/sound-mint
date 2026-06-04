@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
 import { CONTRACT_ADDRESS } from '../config/contract.js'
 
 /**
@@ -18,7 +19,6 @@ export default function SuccessScreen({ txHash, tokenId, result, onReset }) {
   const gradientBorder = `linear-gradient(135deg, ${palette[0]}, ${palette[1]})`
 
   const etherscanUrl = `https://sepolia.etherscan.io/tx/${txHash}`
-  const etherscanNftUrl = `https://sepolia.etherscan.io/nft/${CONTRACT_ADDRESS}/${tokenId}`
 
   // ── Confetti canvas ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -176,19 +176,17 @@ export default function SuccessScreen({ txHash, tokenId, result, onReset }) {
           </div>
         </a>
 
-        <a
-          id="etherscan-token-link"
-          href={etherscanNftUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+        <Link
+          id="gallery-token-link"
+          to={`/gallery/token/${tokenId}`}
           className="glass-card flex flex-col items-center justify-center gap-2 py-4 px-3 text-center hover:border-secondary/40 transition-all duration-200 hover:shadow-glow-secondary group"
         >
           <span className="text-2xl">🎨</span>
           <div>
-            <p className="text-sm font-semibold text-text group-hover:text-secondary transition-colors">NFT Token</p>
-            <p className="text-xs text-muted">View on Etherscan</p>
+            <p className="text-sm font-semibold text-text group-hover:text-secondary transition-colors">NFT Gallery</p>
+            <p className="text-xs text-muted">View in SoundMint</p>
           </div>
-        </a>
+        </Link>
       </motion.div>
 
       {/* ── Mint another CTA ── */}
@@ -207,7 +205,7 @@ export default function SuccessScreen({ txHash, tokenId, result, onReset }) {
           🎵 Mint Another Track
         </button>
         <p className="text-muted text-xs mt-3">
-          It may take a few minutes for your NFT to appear on OpenSea.
+          Your NFT is now ready to be viewed in the gallery.
         </p>
       </motion.div>
     </div>
