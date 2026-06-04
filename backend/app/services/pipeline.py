@@ -90,7 +90,7 @@ async def run_pipeline(session_id: str) -> None:
             file_name=session.file_name,
             audio_traits=session.audio_features or {},
             visual_traits=gen.get("visual_traits", {}),
-            token_number=1,  # placeholder token number pre-mint; updated on-chain
+            token_number=session.token_id,
         )
         session.ipfs_result = ipfs_result
         logger.info(

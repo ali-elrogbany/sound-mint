@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 
 import httpx
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +32,13 @@ KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 
 def _get_auth_headers() -> dict:
-    """Return Pinata auth headers from environment variables."""
-    jwt = os.getenv("PINATA_JWT")
+    """Return Pinata auth headers, preferring JWT over API key pair."""
+    jwt = settings.PINATA_JWT
     if jwt:
         return {"Authorization": f"Bearer {jwt}"}
-    api_key    = os.getenv("PINATA_API_KEY", "")
-    api_secret = os.getenv("PINATA_SECRET_API_KEY", "")
     return {
-        "pinata_api_key":        api_key,
-        "pinata_secret_api_key": api_secret,
+        "pinata_api_key":        settings.PINATA_API_KEY,
+        "pinata_secret_api_key": settings.PINATA_SECRET_API_KEY,
     }
 
 

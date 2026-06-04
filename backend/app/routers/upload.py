@@ -6,7 +6,7 @@ POST /v1/upload  — Accepts MP3, validates MIME + size, starts pipeline
 import asyncio
 import os
 
-from fastapi import APIRouter, BackgroundTasks, File, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -39,6 +39,7 @@ async def upload_file(
     request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    token_id: int = Form(1),
 ):
     # ── MIME type check ─────────────────────────────────────────────────────────
     if file.content_type not in ALLOWED_MIME_TYPES:
@@ -94,6 +95,7 @@ async def upload_file(
     session = create_session(
         file_name=file.filename or "upload.mp3",
         file_path="",  # filled below
+        token_id=token_id,
     )
     session_dir = f"{settings.SESSIONS_DIR}/{session.session_id}"
     os.makedirs(session_dir, exist_ok=True)

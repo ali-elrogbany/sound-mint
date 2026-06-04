@@ -47,6 +47,7 @@ class SessionData:
     session_id: str
     file_name: str
     file_path: str
+    token_id: int = 1
     created_at: datetime = field(default_factory=datetime.utcnow)
     current_stage: PipelineStage = PipelineStage.UPLOADED
     error: Optional[str] = None
@@ -91,12 +92,13 @@ class SessionData:
 _sessions: Dict[str, SessionData] = {}
 
 
-def create_session(file_name: str, file_path: str) -> SessionData:
+def create_session(file_name: str, file_path: str, token_id: int = 1) -> SessionData:
     session_id = str(uuid.uuid4())
     session = SessionData(
         session_id=session_id,
         file_name=file_name,
         file_path=file_path,
+        token_id=token_id,
     )
     _sessions[session_id] = session
     return session
