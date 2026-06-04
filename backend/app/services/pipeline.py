@@ -91,6 +91,7 @@ async def run_pipeline(session_id: str) -> None:
             audio_traits=session.audio_features or {},
             visual_traits=gen.get("visual_traits", {}),
             token_number=session.token_id,
+            audio_path=session.file_path,
         )
         session.ipfs_result = ipfs_result
         logger.info(

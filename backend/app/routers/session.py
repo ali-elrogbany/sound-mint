@@ -78,9 +78,11 @@ async def get_result(session_id: str):
         "file_name": session.file_name,
         # IPFS fields (populated once Pinata integration is active)
         "animation_cid": ipfs.get("animation_cid"),
-        "metadata_cid": ipfs.get("metadata_cid"),
+        "audio_cid":     ipfs.get("audio_cid"),
+        "metadata_cid":  ipfs.get("metadata_cid"),
         "animation_url": ipfs.get("animation_url") or gen.get("gif_url"),
-        "token_uri": ipfs.get("token_uri"),
+        "audio_url":     ipfs.get("audio_url"),
+        "token_uri":     ipfs.get("token_uri"),
         # Audio analysis
         "audio_traits": audio,
         # Visual generation

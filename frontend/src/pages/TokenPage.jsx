@@ -5,13 +5,14 @@ import { KEY_NAMES, energyLabel, bpmLabel, brightnessLabel, ipfsToHttp } from '.
 import WalletButton from '../components/WalletButton';
 import { useTokenData } from '../hooks/useTokenData';
 import TraitsBadge from '../components/TraitsBadge';
+import AudioPlayer from '../components/AudioPlayer';
 import { useState, useEffect } from 'react';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { formatEther } from 'viem';
 
 export default function TokenPage() {
     const { tokenId } = useParams();
-    const { tokenDetail, metadata, txHash, loading, error } = useTokenData(tokenId);
+    const { tokenDetail, metadata, audioUrl, txHash, loading, error } = useTokenData(tokenId);
     const { address } = useAccount();
     const [showToast, setShowToast] = useState(false);
     
@@ -116,6 +117,15 @@ export default function TokenPage() {
                             )}
                         </div>
                     </div>
+
+                    {/* Audio Player — shown only for tokens with audio_url in metadata */}
+                    {audioUrl && (
+                        <AudioPlayer
+                            audioUrl={audioUrl}
+                            trackName={metadata?.name || `SoundMint #${tokenId}`}
+                            palette={fallbackTraits?.visual_traits?.color_palette || ['#A044FF', '#12D8FA']}
+                        />
+                    )}
                 </div>
 
                 {/* ── Right: Details ── */}

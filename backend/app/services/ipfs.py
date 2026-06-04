@@ -78,12 +78,40 @@ async def pin_gif(gif_path: str, file_name: str) -> str:
     return cid
 
 
+async def pin_audio(audio_path: str, file_name: str) -> str:
+    """Upload the source audio file to IPFS via Pinata."""
+    headers = _get_auth_headers()
+
+    audio_bytes = Path(audio_path).read_bytes()
+    pin_name = f"SoundMint-audio-{file_name}"
+
+    metadata = json.dumps({"name": pin_name})
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(
+            PINATA_PIN_FILE_URL,
+            headers=headers,
+            files={
+                "file": (file_name, audio_bytes, "audio/mpeg"),
+                "pinataMetadata": (None, metadata, "application/json"),
+            },
+        )
+
+    if response.status_code != 200:
+        raise RuntimeError(f"Pinata audio pin failed: {response.text[:300]}")
+
+    cid = response.json()["IpfsHash"]
+    logger.info(f"Audio pinned to IPFS: {cid}")
+    return cid
+
+
 async def pin_metadata(
     token_number: int,
     animation_cid: str,
     audio_traits: dict,
     visual_traits: dict,
     file_name: str,
+    audio_cid: str | None = None,
 ) -> str:
     """
     Build an ERC-721 / OpenSea-compatible metadata JSON and pin it to IPFS.
@@ -146,6 +174,10 @@ async def pin_metadata(
         ],
     }
 
+    # Embed audio URL when the MP3 was successfully pinned
+    if audio_cid:
+        metadata["audio_url"] = f"ipfs://{audio_cid}"
+
     pin_name = f"SoundMint-metadata-{token_number}"
 
     payload = {
@@ -177,16 +209,33 @@ async def pin_all(
     audio_traits: dict,
     visual_traits: dict,
     token_number: int = 1,
+    audio_path: str | None = None,
 ) -> dict:
     """
     Full Pinata pinning workflow:
-      1. Pin the GIF → animation_cid
-      2. Build metadata JSON → pin → metadata_cid
+      1. Pin the GIF          → animation_cid
+      2. Pin the MP3 (opt.)   → audio_cid
+      3. Build metadata JSON  → pin → metadata_cid
 
-    Returns dict with animation_cid, metadata_cid, animation_url, token_uri.
+    Args:
+        audio_path: Optional path to the original MP3. When provided, the file is
+                    pinned to IPFS and referenced as ``audio_url`` in the metadata
+                    so the token page can offer native audio playback.
+
+    Returns dict with animation_cid, audio_cid, metadata_cid, animation_url,
+    audio_url, and token_uri.
     """
     logger.info(f"Pinning GIF: {gif_path}")
     animation_cid = await pin_gif(gif_path, file_name)
+
+    # Pin the original MP3 — non-fatal if unavailable or too large
+    audio_cid: str | None = None
+    if audio_path:
+        try:
+            logger.info(f"Pinning audio: {audio_path}")
+            audio_cid = await pin_audio(audio_path, file_name)
+        except Exception as exc:
+            logger.warning(f"Audio pinning skipped (non-fatal): {exc}")
 
     logger.info(f"Pinning metadata for token #{token_number}")
     metadata_cid = await pin_metadata(
@@ -195,11 +244,14 @@ async def pin_all(
         audio_traits=audio_traits,
         visual_traits=visual_traits,
         file_name=file_name,
+        audio_cid=audio_cid,
     )
 
     return {
         "animation_cid":  animation_cid,
+        "audio_cid":      audio_cid,
         "metadata_cid":   metadata_cid,
         "animation_url":  f"{PINATA_GATEWAY}/{animation_cid}",
+        "audio_url":      f"{PINATA_GATEWAY}/{audio_cid}" if audio_cid else None,
         "token_uri":      f"ipfs://{metadata_cid}",
     }

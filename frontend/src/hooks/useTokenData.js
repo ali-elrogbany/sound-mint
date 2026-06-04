@@ -81,6 +81,7 @@ export function useTokenData(tokenId) {
     return {
         tokenDetail, // [uri, traits, owner, minter, timestamp]
         metadata,
+        audioUrl: metadata?.audio_url || null,
         txHash,
         loading: loadingOnChain || loadingMetadata,
         error: onChainError
