@@ -97,12 +97,12 @@ The MVP is considered successful when:
 - Unique token ID per mint
 - On-chain storage of key audio traits
 - Simple responsive web interface
+- Peer-to-peer NFT trading (list, buy, offer, accept)
 
 ### 3.2 Out of Scope for MVP (Future Phases)
 
 - Genre classification using ML models
 - Social features (profiles, galleries, sharing)
-- Secondary marketplace integration (external platforms such as OpenSea or LooksRare)
 - Multiple audio formats (WAV, FLAC, AAC)
 - Batch minting
 - Audio playback of original song in NFT viewer
@@ -253,6 +253,53 @@ The MVP is considered successful when:
 | AC2: Each card shows the animation thumbnail, token ID, dominant key, BPM, and energy level         |
 | AC3: Clicking a card navigates to the individual token page (`/gallery/token/{tokenId}`)            |
 | AC4: A wallet-connected user can filter the gallery to show only their own tokens ("My Collection") |
+
+### Epic 6 — NFT Trading
+
+**US-010** — As an NFT owner, I want to list my NFT for sale at a fixed price so that other users can purchase it.
+
+| Acceptance Criteria |
+| --- |
+| AC1: Only the token owner can list. |
+| AC2: Listing price > 0. |
+| AC3: Token is held in escrow (transferred to contract) on listing. |
+| AC4: A `Listed` event is emitted. |
+| AC5: The listing appears on the Gallery with a "Buy" button. |
+
+---
+
+**US-011** — As a user, I want to buy a listed NFT by paying the listed price so that I become the new owner.
+
+| Acceptance Criteria |
+| --- |
+| AC1: Buyer sends exact price or more. |
+| AC2: Token is transferred to buyer. |
+| AC3: Seller receives sale proceeds. |
+| AC4: A `Sold` event is emitted. |
+| AC5: The Gallery updates ownership immediately. |
+
+---
+
+**US-012** — As an NFT owner, I want to cancel my listing so that my NFT is returned to my wallet and no longer available for sale.
+
+| Acceptance Criteria |
+| --- |
+| AC1: Only the original lister can cancel. |
+| AC2: Token is returned to the owner. |
+| AC3: The listing is removed from the Gallery. |
+| AC4: A `ListingCancelled` event is emitted. |
+
+---
+
+**US-013** — As a user, I want to make an offer on any NFT (listed or unlisted) by depositing ETH so that the owner can accept my offer.
+
+| Acceptance Criteria |
+| --- |
+| AC1: Offer amount > 0 and backed by deposited ETH. |
+| AC2: Offerer can withdraw (cancel) an active offer to reclaim ETH. |
+| AC3: Owner can accept the highest/any offer. |
+| AC4: On acceptance, token transfers to offerer, proceeds to seller. |
+| AC5: `OfferMade`, `OfferCancelled`, `OfferAccepted` events emitted. |
 
 ## 6. System Architecture Overview
 
@@ -874,6 +921,9 @@ Token Symbol:  SNDM
 | `mintPrice`       | `uint256`                         | Price in wei to mint one NFT                  |
 | `tokenURIs`       | `mapping(uint256 => string)`      | Maps token ID → IPFS metadata URI             |
 | `tokenTraits`     | `mapping(uint256 => AudioTraits)` | Maps token ID → on-chain audio traits         |
+| `listings`        | `mapping(uint256 => Listing)`     | Active sale listings                          |
+| `offers`          | `mapping(uint256 => mapping(address => Offer))` | Per-token offers by address                   |
+| `offersByToken`   | `mapping(uint256 => address[])`   | Track offerers per token for enumeration      |
 
 ### Structs
 
@@ -884,6 +934,17 @@ struct AudioTraits {
     uint8  energyLevel;       // Normalized RMS energy 0–255
     uint8  brightness;        // Normalized spectral centroid 0–255
     uint16 durationSeconds;   // Song duration in seconds
+}
+
+struct Listing {
+    address seller;
+    uint256 price;
+    bool    active;
+}
+
+struct Offer {
+    uint256 amount;
+    bool    active;
 }
 ```
 
@@ -896,12 +957,27 @@ struct AudioTraits {
 | `setMintPrice(uint256 newPrice)`                        | `public onlyOwner`     | Updates the mint price                             |
 | `withdraw()`                                            | `public onlyOwner`     | Withdraws contract balance to owner                |
 | `getTraits(uint256 tokenId)`                            | `public view`          | Returns the AudioTraits struct for a token         |
+| `listToken(uint256 tokenId, uint256 price)`             | `external`             | Owner lists token for sale                           |
+| `cancelListing(uint256 tokenId)`                        | `external`             | Seller cancels listing                               |
+| `buyToken(uint256 tokenId)`                             | `external payable`     | Buyer purchases listed token                         |
+| `makeOffer(uint256 tokenId)`                            | `external payable`     | User deposits ETH as an offer                        |
+| `cancelOffer(uint256 tokenId)`                          | `external`             | Offerer withdraws their offer                        |
+| `acceptOffer(uint256 tokenId, address offerer)`         | `external`             | Owner accepts a specific offer                       |
+| `getListing(uint256 tokenId)`                           | `external view`        | Returns listing details                              |
+| `getOffer(uint256 tokenId, address offerer)`            | `external view`        | Returns offer details                                |
+| `getOffers(uint256 tokenId)`                            | `external view`        | Returns all active offers for a token                |
 
 ### Events
 
 ```solidity
 event Minted(address indexed to, uint256 indexed tokenId, string ipfsURI);
 event MintPriceUpdated(uint256 oldPrice, uint256 newPrice);
+event Listed(uint256 indexed tokenId, address indexed seller, uint256 price);
+event ListingCancelled(uint256 indexed tokenId, address indexed seller);
+event Sold(uint256 indexed tokenId, address indexed seller, address indexed buyer, uint256 price);
+event OfferMade(uint256 indexed tokenId, address indexed offerer, uint256 amount);
+event OfferCancelled(uint256 indexed tokenId, address indexed offerer);
+event OfferAccepted(uint256 indexed tokenId, address indexed seller, address indexed offerer, uint256 amount);
 ```
 
 ### Deployment Configuration
@@ -1008,12 +1084,18 @@ The Gallery is the platform-native replacement for OpenSea testnet viewing. It m
 - Each card shows: looping GIF thumbnail (auto-play, muted), token ID badge, dominant key pill, BPM, energy label
 - Infinite scroll or pagination (25 tokens per page)
 - "My Collection" toggle (visible only when wallet connected) — filters to `ownerOf == connectedAddress`
+- "My Listings" toggle (visible only when wallet connected) — filters to listings created by connected address
+- Cards show a price badge for listed tokens
 - Cards link to `/gallery/token/:tokenId`
 
 **Token Detail Page (`/gallery/token/:tokenId`)**
 
 - Full-width animated GIF playback at 600×600px (or responsive max-width)
 - NFT name (`SoundMint #tokenId`) as page heading
+- **Marketplace Actions**:
+  - If owner: "List for Sale" button or "Cancel Listing"
+  - If non-owner and listed: "Buy Now" button
+  - "Make Offer" button and "View Offers" section showing all current offers
 - Trait badges section: BPM, Key, Energy, Brightness, Shape Style, Palette, Animation Speed, Duration
 - On-chain info: Token ID, Contract Address (linked to Etherscan), Minted by (truncated wallet, linked to Etherscan address), Tx Hash (linked to Etherscan tx)
 - IPFS links: animation CID and metadata CID (via Pinata gateway)
@@ -1039,6 +1121,12 @@ The Gallery is the platform-native replacement for OpenSea testnet viewing. It m
 **SEC-SC-005:** The deployer private key SHALL never be committed to version control; it SHALL be loaded from environment variables only.
 
 **SEC-SC-006:** The contract SHOULD be submitted for a lightweight audit or peer review before mainnet deployment.
+
+**SEC-SC-007:** Reentrancy protection on `buyToken()`, `cancelOffer()`, and `acceptOffer()` using OpenZeppelin `ReentrancyGuard`.
+
+**SEC-SC-008:** Escrow pattern — tokens are transferred to the contract on listing, preventing double-listing or transfer-while-listed.
+
+**SEC-SC-009:** ETH refund safety — offer withdrawals and overpayment refunds use `call()` pattern.
 
 ### 16.2 Backend Security
 
@@ -1074,7 +1162,7 @@ The Gallery is the platform-native replacement for OpenSea testnet viewing. It m
 | Feature Normalization | Boundary values (0, max) normalize to 0.0 and 1.0                                    |
 | Trait Mapping         | Each audio feature correctly maps to expected visual parameter                       |
 | Metadata Builder      | Output JSON is valid ERC-721 metadata and renders correctly in the SoundMint Gallery |
-| Smart Contract        | `mint()`, `tokenURI()`, `setMintPrice()`, `withdraw()`, access control               |
+| Smart Contract        | `mint()`, marketplace (`list`, `buy`, `offer`, `accept`), access control             |
 
 ### 17.2 Integration Tests
 
@@ -1086,6 +1174,7 @@ The Gallery is the platform-native replacement for OpenSea testnet viewing. It m
 | Mint with insufficient value                     | Smart contract reverts with correct message   |
 | Mint with correct value                          | Token minted, event emitted, tokenURI correct |
 | tokenURI returns correct IPFS URI                | Matches the CID from the result endpoint      |
+| Marketplace end-to-end flow                      | Token listed, bought, ETH and token transfer correctly |
 
 ### 17.3 End-to-End Tests (Manual for MVP)
 

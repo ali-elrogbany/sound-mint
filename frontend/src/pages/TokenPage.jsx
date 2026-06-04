@@ -5,12 +5,46 @@ import { KEY_NAMES, energyLabel, bpmLabel, brightnessLabel, ipfsToHttp } from '.
 import WalletButton from '../components/WalletButton';
 import { useTokenData } from '../hooks/useTokenData';
 import TraitsBadge from '../components/TraitsBadge';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useMarketplace } from '../hooks/useMarketplace';
+import { formatEther } from 'viem';
 
 export default function TokenPage() {
     const { tokenId } = useParams();
     const { tokenDetail, metadata, txHash, loading, error } = useTokenData(tokenId);
+    const { address } = useAccount();
     const [showToast, setShowToast] = useState(false);
+    
+    // Marketplace state
+    const {
+        listing, offerers, userOffer, 
+        listToken, cancelListing, buyToken, 
+        makeOffer, cancelOffer, acceptOffer, getOfferForAddress
+    } = useMarketplace(tokenId);
+
+    const [listPrice, setListPrice] = useState('');
+    const [offerAmount, setOfferAmount] = useState('');
+    const [offererDetails, setOffererDetails] = useState([]);
+
+    // Fetch offer details for each offerer address
+    useEffect(() => {
+        if (!offerers || offerers.length === 0) {
+            setOffererDetails([]);
+            return;
+        }
+        const fetchDetails = async () => {
+            const details = await Promise.all(offerers.map(async (addr) => {
+                const offer = await getOfferForAddress(addr);
+                return {
+                    address: addr,
+                    amount: offer ? formatEther(offer.amount) : '0',
+                    active: offer ? offer.active : false
+                };
+            }));
+            setOffererDetails(details.filter(d => d.active));
+        };
+        fetchDetails();
+    }, [offerers, getOfferForAddress]);
 
     const handleShare = () => {
         navigator.clipboard.writeText(window.location.href);
@@ -38,6 +72,9 @@ export default function TokenPage() {
 
     const [uri, traits, owner, minter, timestamp] = tokenDetail;
     const imageUri = metadata?.animation_url || metadata?.image;
+    
+    // Determine if connected user is owner (or seller if listed)
+    const isOwner = address && (owner.toLowerCase() === address.toLowerCase() || (listing?.active && listing.seller.toLowerCase() === address.toLowerCase()));
     
     // Fallback traits for TraitsBadge compatibility
     const fallbackTraits = {
@@ -108,6 +145,105 @@ export default function TokenPage() {
                             <InfoRow label="Mint Tx" value={truncate(txHash)} href={`https://sepolia.etherscan.io/tx/${txHash}`} />
                         )}
                         <InfoRow label="Metadata" value="IPFS" href={ipfsToHttp(uri)} />
+                    </div>
+
+                    {/* Marketplace Section */}
+                    <div className="glass-card p-6 space-y-4 border-primary/30 shadow-glow-primary">
+                        <h3 className="text-sm uppercase tracking-widest font-semibold text-primary mb-4">Marketplace</h3>
+                        
+                        {listing?.active ? (
+                            <div className="flex items-center justify-between mb-4">
+                                <span className="text-muted">Current Price</span>
+                                <span className="text-2xl font-black text-white">{listing.price} ETH</span>
+                            </div>
+                        ) : (
+                            <div className="text-muted text-sm mb-4">Not listed for sale.</div>
+                        )}
+
+                        {/* Actions for Owner */}
+                        {isOwner && (
+                            <div className="space-y-4">
+                                {listing?.active ? (
+                                    <button onClick={() => cancelListing()} className="w-full bg-red-500/20 text-red-500 hover:bg-red-500/30 font-bold py-3 px-5 rounded-xl transition-all duration-200">
+                                        Cancel Listing
+                                    </button>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="number" 
+                                            placeholder="Price in ETH" 
+                                            value={listPrice} 
+                                            onChange={e => setListPrice(e.target.value)} 
+                                            className="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-primary"
+                                        />
+                                        <button onClick={() => listToken(listPrice)} disabled={!listPrice || isNaN(listPrice) || Number(listPrice) <= 0} className="bg-primary text-white font-bold py-2 px-6 rounded-xl disabled:opacity-50">
+                                            List for Sale
+                                        </button>
+                                    </div>
+                                )}
+                                
+                                {offererDetails.length > 0 && (
+                                    <div className="mt-6">
+                                        <h4 className="text-sm font-semibold mb-2">Active Offers</h4>
+                                        <div className="space-y-2">
+                                            {offererDetails.map((offer, idx) => (
+                                                <div key={idx} className="flex justify-between items-center bg-surface p-3 rounded-xl border border-white/5">
+                                                    <div>
+                                                        <span className="font-mono text-sm">{truncate(offer.address)}</span>
+                                                        <span className="ml-3 font-bold text-secondary">{offer.amount} ETH</span>
+                                                    </div>
+                                                    <button onClick={() => acceptOffer(offer.address)} className="text-xs bg-secondary text-black font-bold px-3 py-1.5 rounded-lg hover:opacity-80">
+                                                        Accept
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Actions for Buyers */}
+                        {!isOwner && address && (
+                            <div className="space-y-4">
+                                {listing?.active && (
+                                    <button onClick={() => buyToken(listing.price)} className="w-full bg-primary text-white font-black py-3 px-5 rounded-xl transition-all duration-200 hover:shadow-glow-primary">
+                                        Buy Now for {listing.price} ETH
+                                    </button>
+                                )}
+                                
+                                {userOffer?.active ? (
+                                    <div className="flex items-center justify-between bg-surface p-4 rounded-xl border border-secondary/30">
+                                        <div>
+                                            <div className="text-xs text-muted">Your Active Offer</div>
+                                            <div className="font-bold text-secondary">{userOffer.amount} ETH</div>
+                                        </div>
+                                        <button onClick={() => cancelOffer()} className="text-sm text-red-400 hover:text-red-300 font-semibold underline">
+                                            Cancel Offer
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="number" 
+                                            placeholder="Offer amount (ETH)" 
+                                            value={offerAmount} 
+                                            onChange={e => setOfferAmount(e.target.value)} 
+                                            className="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-secondary"
+                                        />
+                                        <button onClick={() => makeOffer(offerAmount)} disabled={!offerAmount || isNaN(offerAmount) || Number(offerAmount) <= 0} className="bg-secondary text-black font-bold py-2 px-6 rounded-xl disabled:opacity-50">
+                                            Make Offer
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        
+                        {!address && (
+                            <div className="text-center text-sm text-muted mt-2">
+                                Connect your wallet to buy or make an offer.
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex gap-4">

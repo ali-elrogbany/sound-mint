@@ -9,7 +9,7 @@
 
 // Deployed SoundMint.sol address on Ethereum Sepolia Testnet
 // Replace with your actual deployed address after Remix deployment
-export const CONTRACT_ADDRESS = "0x1e944ccb07dbe870d121a5b6c66b1de7b72d081d";
+export const CONTRACT_ADDRESS = "0xacdf2a48618079f77b8447b351ce9f7d451cff99";
 
 // ABI — matches the exact SoundMint.sol interface
 export const CONTRACT_ABI = [
@@ -93,7 +93,7 @@ export const CONTRACT_ABI = [
                 internalType: "struct SoundMint.AudioTraits",
                 name: "",
                 type: "tuple",
-            }
+            },
         ],
         stateMutability: "view",
         type: "function",
@@ -147,6 +147,184 @@ export const CONTRACT_ABI = [
             { indexed: false, internalType: "uint256", name: "timestamp", type: "uint256" },
         ],
         name: "Minted",
+        type: "event",
+    },
+    
+    // ── Marketplace: ERC721 Approval ───────────────────────────────────────
+    {
+        inputs: [
+            { internalType: "address", name: "to", type: "address" },
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
+        ],
+        name: "approve",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+    {
+        inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+        name: "getApproved",
+        outputs: [{ internalType: "address", name: "", type: "address" }],
+        stateMutability: "view",
+        type: "function",
+    },
+    
+    // ── Marketplace: Core Functions ─────────────────────────────────────────
+    {
+        inputs: [
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
+            { internalType: "uint256", name: "price", type: "uint256" },
+        ],
+        name: "listToken",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+    {
+        inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+        name: "cancelListing",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+    {
+        inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+        name: "buyToken",
+        outputs: [],
+        stateMutability: "payable",
+        type: "function",
+    },
+    {
+        inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+        name: "makeOffer",
+        outputs: [],
+        stateMutability: "payable",
+        type: "function",
+    },
+    {
+        inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+        name: "cancelOffer",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+    {
+        inputs: [
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
+            { internalType: "address", name: "offerer", type: "address" },
+        ],
+        name: "acceptOffer",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+    
+    // ── Marketplace: View Functions ─────────────────────────────────────────
+    {
+        inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+        name: "getListing",
+        outputs: [
+            {
+                components: [
+                    { internalType: "address", name: "seller", type: "address" },
+                    { internalType: "uint256", name: "price", type: "uint256" },
+                    { internalType: "bool", name: "active", type: "bool" },
+                ],
+                internalType: "struct SoundMint.Listing",
+                name: "",
+                type: "tuple",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
+    },
+    {
+        inputs: [
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
+            { internalType: "address", name: "offerer", type: "address" },
+        ],
+        name: "getOffer",
+        outputs: [
+            {
+                components: [
+                    { internalType: "uint256", name: "amount", type: "uint256" },
+                    { internalType: "bool", name: "active", type: "bool" },
+                ],
+                internalType: "struct SoundMint.Offer",
+                name: "",
+                type: "tuple",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
+    },
+    {
+        inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+        name: "getOfferers",
+        outputs: [{ internalType: "address[]", name: "", type: "address[]" }],
+        stateMutability: "view",
+        type: "function",
+    },
+    
+    // ── Marketplace: Events ─────────────────────────────────────────────────
+    {
+        anonymous: false,
+        inputs: [
+            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
+            { indexed: true, internalType: "address", name: "seller", type: "address" },
+            { indexed: false, internalType: "uint256", name: "price", type: "uint256" },
+        ],
+        name: "Listed",
+        type: "event",
+    },
+    {
+        anonymous: false,
+        inputs: [
+            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
+            { indexed: true, internalType: "address", name: "seller", type: "address" },
+        ],
+        name: "ListingCancelled",
+        type: "event",
+    },
+    {
+        anonymous: false,
+        inputs: [
+            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
+            { indexed: true, internalType: "address", name: "seller", type: "address" },
+            { indexed: true, internalType: "address", name: "buyer", type: "address" },
+            { indexed: false, internalType: "uint256", name: "price", type: "uint256" },
+        ],
+        name: "Sold",
+        type: "event",
+    },
+    {
+        anonymous: false,
+        inputs: [
+            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
+            { indexed: true, internalType: "address", name: "offerer", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+        ],
+        name: "OfferMade",
+        type: "event",
+    },
+    {
+        anonymous: false,
+        inputs: [
+            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
+            { indexed: true, internalType: "address", name: "offerer", type: "address" },
+        ],
+        name: "OfferCancelled",
+        type: "event",
+    },
+    {
+        anonymous: false,
+        inputs: [
+            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
+            { indexed: true, internalType: "address", name: "seller", type: "address" },
+            { indexed: true, internalType: "address", name: "offerer", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+        ],
+        name: "OfferAccepted",
         type: "event",
     },
 ];

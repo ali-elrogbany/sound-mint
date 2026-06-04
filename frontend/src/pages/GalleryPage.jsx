@@ -5,9 +5,11 @@ import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../config/contract';
 import { KEY_NAMES, energyLabel, bpmLabel, ipfsToHttp } from '../lib/constants';
 import WalletButton from '../components/WalletButton';
 import { useTokenData } from '../hooks/useTokenData';
+import { useMarketplace } from '../hooks/useMarketplace';
 
-function GalleryCard({ tokenId }) {
+function GalleryCard({ tokenId, filterMode, connectedAddress }) {
     const { tokenDetail, metadata, loading } = useTokenData(tokenId);
+    const { listing } = useMarketplace(tokenId);
 
     if (loading || !tokenDetail) {
         return (
@@ -19,8 +21,16 @@ function GalleryCard({ tokenId }) {
         );
     }
 
-    const traits = tokenDetail[1];
+    const [uri, traits, owner] = tokenDetail;
     const imageUri = metadata?.animation_url || metadata?.image;
+    
+    // Client-side filtering
+    if (filterMode === 'collection' && owner?.toLowerCase() !== connectedAddress?.toLowerCase()) {
+        return null;
+    }
+    if (filterMode === 'listings' && (!listing?.active || listing.seller?.toLowerCase() !== connectedAddress?.toLowerCase())) {
+        return null;
+    }
     
     return (
         <Link to={`/gallery/token/${tokenId}`} className="glass-card overflow-hidden group hover:border-primary/50 transition-all duration-300 hover:shadow-glow-primary">
@@ -29,6 +39,11 @@ function GalleryCard({ tokenId }) {
                     <img src={ipfsToHttp(imageUri)} alt={`Token ${tokenId}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-4xl">🎨</div>
+                )}
+                {listing?.active && (
+                    <div className="absolute top-2 left-2 bg-primary text-white text-xs font-bold px-2 py-1 rounded-lg shadow-glow-primary">
+                        {listing.price} ETH
+                    </div>
                 )}
                 <div className="absolute top-2 right-2 bg-black/60 backdrop-blur text-white text-xs font-bold px-2 py-1 rounded-lg">
                     #{tokenId}
@@ -54,7 +69,7 @@ function GalleryCard({ tokenId }) {
 
 export default function GalleryPage() {
     const { address, isConnected } = useAccount();
-    const [myCollectionOnly, setMyCollectionOnly] = useState(false);
+    const [filterMode, setFilterMode] = useState('all'); // 'all', 'collection', 'listings'
     const [page, setPage] = useState(1);
     const PER_PAGE = 25;
 
@@ -95,18 +110,24 @@ export default function GalleryPage() {
                     </div>
 
                     {isConnected && (
-                        <div className="flex items-center gap-3 bg-surface border border-white/10 p-1.5 rounded-xl">
+                        <div className="flex flex-wrap items-center gap-2 bg-surface border border-white/10 p-1.5 rounded-xl">
                             <button 
-                                onClick={() => setMyCollectionOnly(false)}
-                                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${!myCollectionOnly ? 'bg-primary text-white' : 'text-muted hover:text-white'}`}
+                                onClick={() => setFilterMode('all')}
+                                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterMode === 'all' ? 'bg-primary text-white' : 'text-muted hover:text-white'}`}
                             >
                                 All NFTs
                             </button>
                             <button 
-                                onClick={() => setMyCollectionOnly(true)}
-                                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${myCollectionOnly ? 'bg-primary text-white' : 'text-muted hover:text-white'}`}
+                                onClick={() => setFilterMode('collection')}
+                                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterMode === 'collection' ? 'bg-primary text-white' : 'text-muted hover:text-white'}`}
                             >
                                 My Collection
+                            </button>
+                            <button 
+                                onClick={() => setFilterMode('listings')}
+                                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterMode === 'listings' ? 'bg-primary text-white' : 'text-muted hover:text-white'}`}
+                            >
+                                My Listings
                             </button>
                         </div>
                     )}
@@ -120,14 +141,11 @@ export default function GalleryPage() {
                 ) : (
                     <>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {/* We just map the tokenIds. The GalleryCard component will fetch data for each.
-                                Note: In a real app, myCollectionOnly filtering would require querying `balanceOf` and `tokenOfOwnerByIndex`
-                                or an indexer. For this PoC MVP, if `myCollectionOnly` is true, we might just hide non-owned tokens inside the card, 
-                                but that breaks pagination. To be truly correct for MVP, we'd need to load owners. 
-                                For simplicity, we just pass down a prop if it's "my collection" and hide it if it doesn't match, though pagination will be weird.
-                                Let's just list all of them, and if `myCollectionOnly` is active, users can filter visually. */}
+                            {/* We map the tokenIds. The GalleryCard component will fetch data for each and hide itself if it doesn't match the filter mode.
+                                Note: In a real app, filtering would require an indexer (like The Graph). For this PoC MVP, 
+                                client-side hiding is used, which means pagination pages might appear sparsely populated when filtered. */}
                             {tokens.slice((page - 1) * PER_PAGE, page * PER_PAGE).map(tokenId => (
-                                <GalleryCard key={tokenId} tokenId={tokenId} />
+                                <GalleryCard key={tokenId} tokenId={tokenId} filterMode={filterMode} connectedAddress={address} />
                             ))}
                         </div>
 

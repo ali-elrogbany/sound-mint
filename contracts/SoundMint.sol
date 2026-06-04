@@ -3,8 +3,9 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract SoundMint is ERC721, Ownable {
+contract SoundMint is ERC721, Ownable, ReentrancyGuard {
 
     // -------------------------------------------------------------------------
     // State
@@ -20,8 +21,24 @@ contract SoundMint is ERC721, Ownable {
         string genre;
     }
 
+    struct Listing {
+        address seller;
+        uint256 price;
+        bool    active;
+    }
+
+    struct Offer {
+        uint256 amount;
+        bool    active;
+    }
+
     mapping(uint256 => string)       public tokenURIs;
     mapping(uint256 => AudioTraits)  public tokenTraits;
+
+    // Marketplace state
+    mapping(uint256 => Listing) public listings;
+    mapping(uint256 => mapping(address => Offer)) public offers;
+    mapping(uint256 => address[]) public offersByToken;
 
     // Gallery: track mint timestamp and minter per token
     mapping(uint256 => uint256) public mintedAt;     // tokenId => block.timestamp
@@ -40,6 +57,14 @@ contract SoundMint is ERC721, Ownable {
         uint256 timestamp
     );
     event MintPriceUpdated(uint256 oldPrice, uint256 newPrice);
+
+    // Marketplace Events
+    event Listed(uint256 indexed tokenId, address indexed seller, uint256 price);
+    event ListingCancelled(uint256 indexed tokenId, address indexed seller);
+    event Sold(uint256 indexed tokenId, address indexed seller, address indexed buyer, uint256 price);
+    event OfferMade(uint256 indexed tokenId, address indexed offerer, uint256 amount);
+    event OfferCancelled(uint256 indexed tokenId, address indexed offerer);
+    event OfferAccepted(uint256 indexed tokenId, address indexed seller, address indexed offerer, uint256 amount);
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -169,5 +194,164 @@ contract SoundMint is ERC721, Ownable {
     function withdraw() external onlyOwner {
         (bool ok, ) = payable(owner()).call{value: address(this).balance}("");
         require(ok, "Withdraw failed");
+    }
+
+    // -------------------------------------------------------------------------
+    // Marketplace
+    // -------------------------------------------------------------------------
+
+    /**
+     * @notice List a token for sale. Transfers token to this contract (escrow).
+     */
+    function listToken(uint256 tokenId, uint256 price) external {
+        require(ownerOf(tokenId) == msg.sender, "Not token owner");
+        require(price > 0, "Price must be > 0");
+
+        listings[tokenId] = Listing({
+            seller: msg.sender,
+            price: price,
+            active: true
+        });
+
+        // Escrow the token
+        transferFrom(msg.sender, address(this), tokenId);
+
+        emit Listed(tokenId, msg.sender, price);
+    }
+
+    /**
+     * @notice Cancel a listing and return the token to the seller.
+     */
+    function cancelListing(uint256 tokenId) external {
+        Listing memory listing = listings[tokenId];
+        require(listing.active, "Not listed");
+        require(listing.seller == msg.sender, "Not seller");
+
+        delete listings[tokenId];
+
+        // Return token to seller
+        _transfer(address(this), msg.sender, tokenId);
+
+        emit ListingCancelled(tokenId, msg.sender);
+    }
+
+    /**
+     * @notice Buy a listed token.
+     */
+    function buyToken(uint256 tokenId) external payable nonReentrant {
+        Listing memory listing = listings[tokenId];
+        require(listing.active, "Not listed");
+        require(msg.value >= listing.price, "Insufficient ETH");
+
+        address seller = listing.seller;
+        uint256 price = listing.price;
+
+        delete listings[tokenId];
+
+        // Transfer token to buyer
+        _transfer(address(this), msg.sender, tokenId);
+
+        // Transfer funds to seller (0% fee per requirements)
+        (bool ok, ) = payable(seller).call{value: price}("");
+        require(ok, "Transfer to seller failed");
+
+        // Refund excess
+        if (msg.value > price) {
+            (bool refundOk, ) = payable(msg.sender).call{value: msg.value - price}("");
+            require(refundOk, "Refund failed");
+        }
+
+        emit Sold(tokenId, seller, msg.sender, price);
+    }
+
+    /**
+     * @notice Deposit ETH to make an offer on a token.
+     */
+    function makeOffer(uint256 tokenId) external payable {
+        require(_ownerOf(tokenId) != address(0) || listings[tokenId].active, "Token does not exist");
+        require(msg.value > 0, "Offer must be > 0");
+        
+        address currentOwner = listings[tokenId].active ? listings[tokenId].seller : ownerOf(tokenId);
+        require(msg.sender != currentOwner, "Owner cannot offer");
+
+        Offer storage existingOffer = offers[tokenId][msg.sender];
+        if (!existingOffer.active) {
+            offersByToken[tokenId].push(msg.sender);
+        }
+
+        uint256 newAmount = existingOffer.amount + msg.value;
+        offers[tokenId][msg.sender] = Offer({
+            amount: newAmount,
+            active: true
+        });
+
+        emit OfferMade(tokenId, msg.sender, newAmount);
+    }
+
+    /**
+     * @notice Cancel an active offer and withdraw the deposited ETH.
+     */
+    function cancelOffer(uint256 tokenId) external nonReentrant {
+        Offer memory offer = offers[tokenId][msg.sender];
+        require(offer.active, "No active offer");
+
+        uint256 amount = offer.amount;
+        delete offers[tokenId][msg.sender];
+
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        require(ok, "Refund failed");
+
+        emit OfferCancelled(tokenId, msg.sender);
+    }
+
+    /**
+     * @notice Accept an offer. Caller must be the current owner or the seller if listed.
+     */
+    function acceptOffer(uint256 tokenId, address offerer) external nonReentrant {
+        Offer memory offer = offers[tokenId][offerer];
+        require(offer.active, "No active offer");
+
+        address currentOwner;
+        if (listings[tokenId].active) {
+            require(listings[tokenId].seller == msg.sender, "Not seller");
+            currentOwner = address(this); // Token is in escrow
+            delete listings[tokenId]; // Cancel listing
+        } else {
+            require(ownerOf(tokenId) == msg.sender, "Not owner");
+            currentOwner = msg.sender;
+        }
+
+        uint256 amount = offer.amount;
+        delete offers[tokenId][offerer];
+
+        // Transfer token to offerer
+        _transfer(currentOwner, offerer, tokenId);
+
+        // Transfer funds to seller (0% fee)
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        require(ok, "Transfer failed");
+
+        emit OfferAccepted(tokenId, msg.sender, offerer, amount);
+    }
+
+    /**
+     * @notice Get all active listings for a token.
+     */
+    function getListing(uint256 tokenId) external view returns (Listing memory) {
+        return listings[tokenId];
+    }
+
+    /**
+     * @notice Get a specific offer.
+     */
+    function getOffer(uint256 tokenId, address offerer) external view returns (Offer memory) {
+        return offers[tokenId][offerer];
+    }
+
+    /**
+     * @notice Get all addresses that have made an offer on a token.
+     */
+    function getOfferers(uint256 tokenId) external view returns (address[] memory) {
+        return offersByToken[tokenId];
     }
 }
