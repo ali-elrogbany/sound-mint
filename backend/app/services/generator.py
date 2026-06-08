@@ -202,21 +202,60 @@ async def generate(
     elapsed_ms = round((time.time() - start_time) * 1000)
     gif_size = os.path.getsize(output_gif_path)
 
-    # Build visual traits summary
+    # Build visual traits summary (mapped to the 6 layers)
     norm = audio_features.get("normalized", {})
     raw = audio_features.get("raw", {})
+    
+    # These helpers match the logic in the new sketch.js
+    def get_motif(bpm):
+        if bpm < 80: return "Waveform"
+        if bpm < 110: return "Mandala"
+        if bpm < 140: return "Geometric burst"
+        if bpm < 170: return "Spiral"
+        return "Radial web"
+
+    def get_particles(zcr, energy):
+        if energy > 0.7 and zcr > 0.4: return "Sparks"
+        if zcr > 0.3: return "Shards"
+        if energy < 0.4 and zcr < 0.2: return "Smoke"
+        if zcr < 0.2: return "Orbs"
+        return "Ribbons"
+
+    def get_animation(complexity):
+        if complexity < 0.2: return "Drift"
+        if complexity < 0.4: return "Pulse"
+        if complexity < 0.6: return "Flow field"
+        if complexity < 0.8: return "Orbit"
+        return "Bounce"
+        
+    def get_background(key):
+        bgs = ["Nebula", "Aurora", "Grid", "Void", "Plasma", "Prism", 
+               "Storm", "Coral", "Ember", "Frost", "Forest", "Dusk"]
+        return bgs[key % 12]
+
+    def get_fx(brightness):
+        if brightness > 0.7: return "Bloom glow"
+        if brightness < 0.3: return "Chromatic scanlines"
+        return "None"
+
     key_index = raw.get("dominant_key_index", 0)
-    anim_speed = round(raw.get("bpm", 120) / 60.0, 3)
-    particle_count = round(norm.get("energy", 0.5) * 800) + 50
+    bpm = raw.get("bpm", 120)
+    zcr = norm.get("zcr", 0.1)
+    energy = norm.get("energy", 0.5)
+    complexity = norm.get("complexity", 0.5)
+    brightness = norm.get("brightness", 0.5)
 
     visual_traits = {
-        "color_palette": KEY_PALETTES[key_index % 12],
-        "animation_speed": anim_speed,
-        "particle_count": particle_count,
-        "shape": _shape_label(norm.get("zcr", 0.1)),
-        "glow_intensity": round(norm.get("brightness", 0.5) * 20, 2),
-        "background_complexity": round(norm.get("complexity", 0.5) * 20),
-        "brightness_label": _brightness_label(norm.get("brightness", 0.5)),
+        "layer_1_background": get_background(key_index),
+        "layer_2_motif": get_motif(bpm),
+        "layer_3_particles": get_particles(zcr, energy),
+        "layer_4_palette_base": KEY_PALETTES[key_index % 12],
+        "layer_5_animation": get_animation(complexity),
+        "layer_6_fx": get_fx(brightness),
+        "brightness_label": _brightness_label(brightness),
+        # Keep some raw values for debugging/frontend
+        "animation_speed": round(bpm / 60.0, 3),
+        "particle_count": round(energy * 800) + 50,
     }
 
     return {
