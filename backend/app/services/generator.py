@@ -210,9 +210,12 @@ async def generate(
     def get_camera(seed):
         cams = [
             "Cinematic Pan", "Orbital Focus", "Vortex Tunnel", "Jitter & Shake",
-            "Z-Axis Rush", "Top-Down Spin", "Drone Fly-through", "Isometric Stare"
+            "Z-Axis Rush", "Top-Down Spin", "Drone Fly-through", "Isometric Stare",
+            "Corkscrew Zoom", "Extreme Close-up", "Glitch Teleport", "Swaying Pendulum",
+            "Dutch Angle", "Floor Level Pan", "Ceiling Spin", "Sine Wave Zoom",
+            "Chaotic Flip", "Slow Reverse", "Fast Orbit", "Orthographic Shift"
         ]
-        return cams[(seed // 20) % 8]
+        return cams[(seed // 30) % 20]
 
     def get_geometry(seed):
         shapes = [
@@ -221,24 +224,40 @@ async def generate(
             "Crown of Thorns", "Supernova Spikes", "Tesseract", "Mobius Strip",
             "Low-Poly Icosahedron", "Pyramid Cluster", "Lissajous Curve", 
             "Pulsar Waves", "Diamond Matrix", "Wireframe Terrain", 
-            "Orbiting Moons", "Cylinder Fractal"
+            "Orbiting Moons", "Cylinder Fractal", "Super Torus Knot",
+            "Icosahedral Cage", "Warped Cylinder", "Fractal Star",
+            "Infinity Loop", "Exploding Cubes", "Hollow Prism",
+            "Quantum Strings", "Plasma Rings", "Cosmic Web",
+            "Hyper-Torus", "Fractured Prism", "Dodecahedral Star", "Spiraling Pillars",
+            "Pulsing Hexagons", "Spiky Shell", "Toroidal Knot", "Ribbed Cylinder",
+            "Orbiting Rings", "Sine Wave Surface", "Tangled Web", "Wobbly Sphere",
+            "Twisted Cone", "Floating Tiles", "Geometric Flower", "Double Cone",
+            "Blocky Terrain", "Nested Dodecahedrons", "Bouncing Cubes", "Wireframe Clouds"
         ]
-        return shapes[seed % 20]
+        return shapes[seed % 50]
 
-    def get_physics(energy):
-        if energy < 0.4: return "Floating Embers"
-        if energy < 0.7: return "Fluid Whirlpool"
-        return "Black Hole Gravity"
+    def get_physics(energy, seed):
+        phys_low = ["Floating Embers", "Wind Tunnel", "Grid Align", "Slow Motion Drift", "Static Shock", "Constellation Lines"]
+        phys_mid = ["Fluid Whirlpool", "Magnetic Waves", "Gravity Well", "Bouncing Sparks", "Wavy Ocean", "Tornado", "Pulsing Heartbeat"]
+        phys_high = ["Black Hole Gravity", "Repulsion Field", "Brownian Jitter", "Spiral Galaxy", "Explosive Burst", "Gravity Flip", "Chaotic Flocking"]
+        if energy < 0.3: return phys_low[seed % len(phys_low)]
+        if energy < 0.6: return phys_mid[seed % len(phys_mid)]
+        return phys_high[seed % len(phys_high)]
 
-    def get_glitch(zcr):
-        if zcr > 0.4: return "Pixel Sort + RGB Split"
-        if zcr > 0.2: return "VHS Tear"
-        return "Clean"
+    def get_glitch(zcr, seed):
+        glitches_low = ["Clean", "Scanlines", "White Noise", "Ghosting", "CRT Distortion", "Vertical Slices", "Horizontal Tears"]
+        glitches_mid = ["VHS Tear", "Wireframe Flicker", "Strobe Light", "Bad Reception", "Frame Stutter", "Mirror Split", "Edge Detect"]
+        glitches_high = ["Pixel Sort + RGB Split", "Chromatic Aberration", "Data Moshing", "RGB Shift", "Invert Colors", "Color Bleed"]
+        if zcr < 0.15: return glitches_low[seed % len(glitches_low)]
+        if zcr < 0.3: return glitches_mid[seed % len(glitches_mid)]
+        return glitches_high[seed % len(glitches_high)]
         
     def get_background(key):
         bgs = ["Deep Space", "Aurora Borealis", "Cyber Grid", "The Void", "Plasma Core", "Crystalline", 
-               "Ion Storm", "Bioluminescence", "Dying Star", "Glacier", "Neon Forest", "Dusk Horizon"]
-        return bgs[key % 12]
+               "Ion Storm", "Bioluminescence", "Dying Star", "Glacier", "Neon Forest", "Dusk Horizon",
+               "Toxic Waste", "Solar Flare", "Vaporwave", "Matrix Rain", "Deep Ocean", "Volcano Core",
+               "Midnight Purple", "Cyberpunk City"]
+        return bgs[key % 20]
 
     key_index = raw.get("dominant_key_index", 0)
     bpm = raw.get("bpm", 120)
@@ -253,8 +272,8 @@ async def generate(
         "layer_1_background": get_background(key_index),
         "layer_2_camera": get_camera(seed),
         "layer_3_geometry": get_geometry(seed),
-        "layer_4_physics": get_physics(energy),
-        "layer_5_glitch": get_glitch(zcr),
+        "layer_4_physics": get_physics(energy, seed),
+        "layer_5_glitch": get_glitch(zcr, seed),
         "layer_6_palette_base": KEY_PALETTES[key_index % 12],
         "brightness_label": _brightness_label(brightness),
         "animation_speed": round(bpm / 60.0, 3),
