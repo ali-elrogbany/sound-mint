@@ -6,6 +6,7 @@ a structured dict matching the PRD Section 11.1 data model.
 """
 from __future__ import annotations
 
+import hashlib
 import numpy as np
 
 # ── Pre-defined normalization bounds (calibrated on diverse music dataset) ──────
@@ -64,6 +65,14 @@ def analyze(file_path: str, session_id: str, file_name: str) -> dict:
     except Exception as exc:
         raise RuntimeError(f"Failed to load audio file: {exc}") from exc
 
+    # ── AC5 (US-003): Compute SHA-256 of the raw MP3 bytes ─────────────────────
+    try:
+        with open(file_path, "rb") as f:
+            file_bytes = f.read()
+        audio_hash = "0x" + hashlib.sha256(file_bytes).hexdigest()
+    except Exception as exc:
+        raise RuntimeError(f"Failed to compute audio hash: {exc}") from exc
+
     try:
         # ── Feature extraction ──────────────────────────────────────────────────
         duration = float(librosa.get_duration(y=y, sr=sr))
@@ -112,6 +121,7 @@ def analyze(file_path: str, session_id: str, file_name: str) -> dict:
     return {
         "session_id": session_id,
         "file_name": file_name,
+        "audio_hash": audio_hash,  # AC5: SHA-256 of raw MP3 file, as 0x-prefixed hex
         "duration_seconds": round(duration, 2),
         "raw": {
             "bpm": round(bpm, 2),

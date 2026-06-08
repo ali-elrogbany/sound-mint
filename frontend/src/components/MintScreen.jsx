@@ -41,6 +41,22 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
 
   const mintPriceEth = mintPriceWei ? formatEther(mintPriceWei) : '0.01'
 
+  // ── AC7 (US-007): Check if song hash was already minted ─────────────────────
+  // The audio_hash from the backend is a 0x-prefixed hex SHA-256 string.
+  // We convert it to a bytes32 value and query the contract's mintedHashes mapping.
+  const audioHashHex = result?.audio_hash ?? null
+  const { data: isSongAlreadyMinted } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: 'mintedHashes',
+    args: [audioHashHex],
+    query: {
+      enabled:
+        !!audioHashHex &&
+        CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000',
+    },
+  })
+
   // ── Write: mint() ─────────────────────────────────────────────────────────
   const {
     writeContract,
@@ -167,6 +183,7 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
             brightness: traits.brightness ?? 0,           // uint8 (0-255)
             genre: genreLabel,                            // string
           },
+          audioHashHex,                                  // bytes32 (FR-SC-002)
         ],
         value: mintPriceWei ?? parseEther('0.01'),
       },
@@ -183,7 +200,7 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
         },
       }
     )
-  }, [address, result, customName, mintPriceWei, writeContract, addNotification])
+  }, [address, result, customName, mintPriceWei, writeContract, addNotification, audioHashHex])
 
   // ── Derived UI state ──────────────────────────────────────────────────────
   const isBusy = isWritePending || isConfirming
@@ -192,6 +209,7 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
   const buttonLabel = () => {
     if (!isConnected) return '🦊 Connect Wallet to Mint'
     if (!isOnSepolia) return '⚠ Switch to Sepolia'
+    if (isSongAlreadyMinted) return '🚫 Song Already Minted'
     if (isWritePending) return 'Confirm in MetaMask…'
     if (isConfirming) return 'Mining Transaction…'
     if (isConfirmed) return '✓ Minted!'
@@ -235,6 +253,27 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
             then update <code className="font-mono bg-yellow-500/10 px-1 rounded">CONTRACT_ADDRESS</code> in{' '}
             <code className="font-mono bg-yellow-500/10 px-1 rounded">src/config/contract.js</code>.
           </p>
+        </motion.div>
+      )}
+
+      {/* ── AC7 (US-007): Song Already Minted error banner ── */}
+      {isSongAlreadyMinted && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-error/10 border border-error/40 rounded-xl p-4 text-sm"
+        >
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">🚫</span>
+            <div>
+              <p className="font-bold text-error mb-1">Song Already Minted</p>
+              <p className="text-error/70 text-xs leading-relaxed">
+                This exact audio file has already been minted as a SoundMint NFT.
+                Each song can only be minted once to preserve the uniqueness of the gallery.
+                Please go back and upload a different track.
+              </p>
+            </div>
+          </div>
         </motion.div>
       )}
 
@@ -365,11 +404,11 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
         <button
           id="mint-nft-btn"
           onClick={handleMint}
-          disabled={!canMint || isBusy || isConfirmed || isContractPlaceholder}
+          disabled={!canMint || isBusy || isConfirmed || isContractPlaceholder || isSongAlreadyMinted}
           className="flex-1 relative text-white font-bold py-3 rounded-xl transition-all duration-200 text-sm disabled:opacity-40 disabled:cursor-not-allowed overflow-hidden"
           style={{
-            background: canMint && !isBusy && !isConfirmed ? gradientBorder : undefined,
-            backgroundColor: (!canMint || isBusy || isConfirmed) ? '#333' : undefined,
+            background: canMint && !isBusy && !isConfirmed && !isSongAlreadyMinted ? gradientBorder : undefined,
+            backgroundColor: (!canMint || isBusy || isConfirmed || isSongAlreadyMinted) ? '#333' : undefined,
           }}
         >
           {/* Shimmer effect when idle + ready */}

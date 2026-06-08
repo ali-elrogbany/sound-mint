@@ -113,7 +113,16 @@ export const CONTRACT_ABI = [
         type: "function",
     },
 
-    // ── Write: mint(address to, string ipfsURI, AudioTraits traits) ────────
+    // ── Read: mintedHashes — check if a song hash has already been minted (AC7) ─
+    {
+        inputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+        name: "mintedHashes",
+        outputs: [{ internalType: "bool", name: "", type: "bool" }],
+        stateMutability: "view",
+        type: "function",
+    },
+
+    // ── Write: mint(address to, string ipfsURI, AudioTraits traits, bytes32 audioHash) ─
     {
         inputs: [
             { internalType: "address", name: "to", type: "address" },
@@ -130,6 +139,7 @@ export const CONTRACT_ABI = [
                 name: "traits",
                 type: "tuple",
             },
+            { internalType: "bytes32", name: "audioHash", type: "bytes32" },  // FR-SC-002
         ],
         name: "mint",
         outputs: [{ internalType: "uint256", name: "", type: "uint256" }],

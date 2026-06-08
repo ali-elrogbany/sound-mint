@@ -78,6 +78,8 @@ async def get_result(session_id: str):
         "session_id": session_id,
         "status": "ready",
         "file_name": session.file_name,
+        # Audio hash — SHA-256 of original MP3, used for on-chain uniqueness (AC5/AC7)
+        "audio_hash": audio.get("audio_hash"),
         # IPFS fields (populated once Pinata integration is active)
         "animation_cid": ipfs.get("animation_cid"),
         "audio_cid":     ipfs.get("audio_cid"),
