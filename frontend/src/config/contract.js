@@ -9,7 +9,7 @@
 
 // Deployed SoundMint.sol address on Ethereum Sepolia Testnet
 // Replace with your actual deployed address after Remix deployment
-export const CONTRACT_ADDRESS = "0x6aef200fe6fd373e560d34b3a9993e7db2d11732";
+export const CONTRACT_ADDRESS = "0x66242b8fdb8b6e9833f1dc37bb617cc993ec16a6";
 
 // ABI — matches the exact SoundMint.sol interface
 export const CONTRACT_ABI = [
@@ -148,8 +148,8 @@ export const CONTRACT_ABI = [
                 name: "traits",
                 type: "tuple",
             },
-            { internalType: "bytes32", name: "audioHash", type: "bytes32" },        // FR-SC-002: exact file hash
-            { internalType: "bytes32", name: "fingerprintHash", type: "bytes32" },  // AC5-acoustic: Chromaprint fingerprint
+            { internalType: "bytes32", name: "audioHash", type: "bytes32" }, // FR-SC-002: exact file hash
+            { internalType: "bytes32", name: "fingerprintHash", type: "bytes32" }, // AC5-acoustic: Chromaprint fingerprint
         ],
         name: "mint",
         outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
