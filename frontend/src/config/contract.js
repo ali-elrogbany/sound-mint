@@ -9,7 +9,7 @@
 
 // Deployed SoundMint.sol address on Ethereum Sepolia Testnet
 // Replace with your actual deployed address after Remix deployment
-export const CONTRACT_ADDRESS = "0xacdf2a48618079f77b8447b351ce9f7d451cff99";
+export const CONTRACT_ADDRESS = "0x6aef200fe6fd373e560d34b3a9993e7db2d11732";
 
 // ABI — matches the exact SoundMint.sol interface
 export const CONTRACT_ABI = [
@@ -149,7 +149,7 @@ export const CONTRACT_ABI = [
         name: "Minted",
         type: "event",
     },
-    
+
     // ── Marketplace: ERC721 Approval ───────────────────────────────────────
     {
         inputs: [
@@ -168,7 +168,7 @@ export const CONTRACT_ABI = [
         stateMutability: "view",
         type: "function",
     },
-    
+
     // ── Marketplace: Core Functions ─────────────────────────────────────────
     {
         inputs: [
@@ -218,7 +218,7 @@ export const CONTRACT_ABI = [
         stateMutability: "nonpayable",
         type: "function",
     },
-    
+
     // ── Marketplace: View Functions ─────────────────────────────────────────
     {
         inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
@@ -265,7 +265,7 @@ export const CONTRACT_ABI = [
         stateMutability: "view",
         type: "function",
     },
-    
+
     // ── Marketplace: Events ─────────────────────────────────────────────────
     {
         anonymous: false,

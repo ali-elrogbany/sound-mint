@@ -178,6 +178,7 @@ The MVP is considered successful when:
 | AC2: Analysis completes within 20 seconds for files up to 10 minutes in length                                                                                |
 | AC3: Extracted features are stored in a structured JSON object and logged server-side                                                                         |
 | AC4: If analysis fails, the user receives an error message and can re-upload                                                                                  |
+| AC5: The engine calculates a cryptographic hash (e.g., SHA-256) of the MP3 file to uniquely identify the song and prevent duplicate mints                     |
 
 ---
 
@@ -228,6 +229,7 @@ The MVP is considered successful when:
 | AC4: A transaction hash is returned and displayed with a link to Etherscan (Sepolia)                                             |
 | AC5: A success screen shows the minted token ID and a link to view the NFT on the SoundMint Gallery (`/gallery/token/{tokenId}`) |
 | AC6: If the transaction fails, a clear error message is shown with a "Try Again" option                                          |
+| AC7: The system prevents minting if the song's audio hash has already been minted, displaying a "Song Already Minted" error      |
 
 ---
 
@@ -436,9 +438,9 @@ The MVP is considered successful when:
 
 **FR-SC-001:** The smart contract SHALL implement the ERC-721 standard via OpenZeppelin's `ERC721.sol`.
 
-**FR-SC-002:** The smart contract SHALL expose a `mint(address to, string calldata tokenURI, AudioTraits calldata traits)` function.
+**FR-SC-002:** The smart contract SHALL expose a `mint(address to, string calldata tokenURI, AudioTraits calldata traits, bytes32 audioHash)` function.
 
-**FR-SC-003:** The `mint` function SHALL require a payment of at least `mintPrice` (initially 0.5 MATIC on testnet).
+**FR-SC-003:** The `mint` function SHALL require a payment of at least `mintPrice` (initially 0.5 MATIC on testnet) and SHALL revert if `audioHash` has already been minted.
 
 **FR-SC-004:** The contract owner SHALL be able to update `mintPrice` via a permissioned setter.
 
@@ -666,6 +668,7 @@ brightness_filter = 80 + normalized_spectral_centroid * 40  // CSS brightness 80
 {
     "session_id": "uuid-v4-string",
     "file_name": "my_track.mp3",
+    "audio_hash": "0xabc123...",
     "duration_seconds": 213.4,
     "raw": {
         "bpm": 128.0,
@@ -723,6 +726,7 @@ See Section 14.
 {
   to: "0xUserWalletAddress",
   tokenURI: "ipfs://QmMetadataCID",
+  audioHash: "0xabc123...",
   traits: {
     bpm: 128,           // uint16
     dominantKey: 7,     // uint8 (0–11)
@@ -921,6 +925,7 @@ Token Symbol:  SNDM
 | `mintPrice`       | `uint256`                         | Price in wei to mint one NFT                  |
 | `tokenURIs`       | `mapping(uint256 => string)`      | Maps token ID → IPFS metadata URI             |
 | `tokenTraits`     | `mapping(uint256 => AudioTraits)` | Maps token ID → on-chain audio traits         |
+| `mintedHashes`    | `mapping(bytes32 => bool)`        | Maps audio hash → whether it has been minted  |
 | `listings`        | `mapping(uint256 => Listing)`     | Active sale listings                          |
 | `offers`          | `mapping(uint256 => mapping(address => Offer))` | Per-token offers by address                   |
 | `offersByToken`   | `mapping(uint256 => address[])`   | Track offerers per token for enumeration      |
@@ -950,10 +955,10 @@ struct Offer {
 
 ### Functions
 
-| Function                                                | Visibility             | Description                                        |
-| ------------------------------------------------------- | ---------------------- | -------------------------------------------------- |
-| `mint(address to, string tokenURI, AudioTraits traits)` | `public payable`       | Mints new token; requires `msg.value >= mintPrice` |
-| `tokenURI(uint256 tokenId)`                             | `public view override` | Returns the IPFS metadata URI for a token          |
+| Function                                                                 | Visibility             | Description                                        |
+| ------------------------------------------------------------------------ | ---------------------- | -------------------------------------------------- |
+| `mint(address to, string tokenURI, AudioTraits traits, bytes32 audioHash)` | `public payable`       | Mints new token; requires payment and unique hash  |
+| `tokenURI(uint256 tokenId)`                                              | `public view override` | Returns the IPFS metadata URI for a token          |
 | `setMintPrice(uint256 newPrice)`                        | `public onlyOwner`     | Updates the mint price                             |
 | `withdraw()`                                            | `public onlyOwner`     | Withdraws contract balance to owner                |
 | `getTraits(uint256 tokenId)`                            | `public view`          | Returns the AudioTraits struct for a token         |
