@@ -7,6 +7,7 @@ a structured dict matching the PRD Section 11.1 data model.
 from __future__ import annotations
 
 import hashlib
+import struct
 import numpy as np
 
 # ── Pre-defined normalization bounds (calibrated on diverse music dataset) ──────
@@ -73,6 +74,47 @@ def analyze(file_path: str, session_id: str, file_name: str) -> dict:
     except Exception as exc:
         raise RuntimeError(f"Failed to compute audio hash: {exc}") from exc
 
+    # ── AC5-acoustic: Compute Chromaprint fingerprint hash ──────────────────────
+    # Uses pyacoustid (which wraps libchromaprint / fpcalc) to fingerprint the
+    # decoded PCM signal. The resulting integer array is packed to bytes and
+    # SHA-256-hashed to produce a stable bytes32-compatible on-chain key.
+    # This hash stays consistent even when the same song is re-encoded, trimmed,
+    # or has its ID3 tags changed — unlike the file-level SHA-256 above.
+    fingerprint_hash: str
+    try:
+        import acoustid  # pyacoustid — deferred so missing lib gives clear error
+
+        # acoustid can fingerprint directly from a file path (calls fpcalc/libchromaprint)
+        _fp_duration, fp_raw = acoustid.fingerprint_file(file_path)
+
+        if fp_raw:
+            # fp_raw is a bytes object containing the Chromaprint raw fingerprint.
+            # SHA-256 it to produce a deterministic bytes32 for the contract.
+            fingerprint_hash = "0x" + hashlib.sha256(fp_raw).hexdigest()
+        else:
+            # Fingerprint unavailable — fall back to file hash so the mint
+            # can still proceed (just with weaker duplicate detection).
+            fingerprint_hash = audio_hash
+    except ImportError:
+        # pyacoustid not installed — log warning and fall back
+        import warnings
+        warnings.warn(
+            "pyacoustid is not installed (pip install pyacoustid). "
+            "Acoustic fingerprinting disabled; falling back to file hash.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        fingerprint_hash = audio_hash
+    except Exception as fp_exc:
+        # chromaprint binary (fpcalc) might be missing or the file is unreadable
+        import warnings
+        warnings.warn(
+            f"Chromaprint fingerprinting failed ({fp_exc}); falling back to file hash.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        fingerprint_hash = audio_hash
+
     try:
         # ── Feature extraction ──────────────────────────────────────────────────
         duration = float(librosa.get_duration(y=y, sr=sr))
@@ -121,7 +163,8 @@ def analyze(file_path: str, session_id: str, file_name: str) -> dict:
     return {
         "session_id": session_id,
         "file_name": file_name,
-        "audio_hash": audio_hash,  # AC5: SHA-256 of raw MP3 file, as 0x-prefixed hex
+        "audio_hash": audio_hash,          # AC5: SHA-256 of raw MP3 file bytes (exact file duplicate check)
+        "fingerprint_hash": fingerprint_hash,  # AC5-acoustic: Chromaprint fingerprint hash (acoustic duplicate check)
         "duration_seconds": round(duration, 2),
         "raw": {
             "bpm": round(bpm, 2),

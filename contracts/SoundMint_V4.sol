@@ -34,8 +34,7 @@ contract SoundMint is ERC721, Ownable, ReentrancyGuard {
 
     mapping(uint256 => string)       public tokenURIs;
     mapping(uint256 => AudioTraits)  public tokenTraits;
-    mapping(bytes32 => bool)         public mintedHashes;        // SHA-256 of raw file bytes (exact file duplicate)
-    mapping(bytes32 => bool)         public mintedFingerprints;  // Chromaprint acoustic fingerprint (acoustic duplicate)
+    mapping(bytes32 => bool)         public mintedHashes;
 
     // Marketplace state
     mapping(uint256 => Listing) public listings;
@@ -80,33 +79,26 @@ contract SoundMint is ERC721, Ownable, ReentrancyGuard {
 
     /**
      * @notice Mint a new SoundMint NFT.
-     * @param to               Recipient wallet address.
-     * @param ipfsURI          IPFS metadata URI (ipfs://CID).
-     * @param traits           On-chain audio traits derived from the uploaded track.
-     * @param audioHash        SHA-256 of the raw MP3 file bytes (FR-SC-002, AC5).
-     * @param fingerprintHash  SHA-256 of the Chromaprint acoustic fingerprint (AC5-acoustic).
-     * @return tokenId         The newly minted token ID.
+     * @param to        Recipient wallet address.
+     * @param ipfsURI   IPFS metadata URI (ipfs://CID).
+     * @param traits    On-chain audio traits derived from the uploaded track.
+     * @return tokenId  The newly minted token ID.
      */
     function mint(
         address to,
         string calldata ipfsURI,
         AudioTraits calldata traits,
-        bytes32 audioHash,
-        bytes32 fingerprintHash
+        bytes32 audioHash
     ) external payable returns (uint256) {
         require(msg.value >= mintPrice, "Insufficient ETH");
-        // FR-SC-002: Reject exact file duplicate
         require(!mintedHashes[audioHash], "Song already minted");
-        // AC5 (acoustic): Reject acoustically equivalent song (re-encoded, trimmed, re-tagged)
-        require(!mintedFingerprints[fingerprintHash], "Song already minted (acoustic duplicate)");
 
         uint256 tokenId = ++_tokenIdCounter;
         _safeMint(to, tokenId);
 
         tokenURIs[tokenId]   = ipfsURI;
         tokenTraits[tokenId] = traits;
-        mintedHashes[audioHash]           = true;
-        mintedFingerprints[fingerprintHash] = true;
+        mintedHashes[audioHash] = true;
         mintedAt[tokenId]    = block.timestamp;
         mintedBy[tokenId]    = msg.sender;
 

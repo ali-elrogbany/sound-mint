@@ -41,11 +41,13 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
 
   const mintPriceEth = mintPriceWei ? formatEther(mintPriceWei) : '0.01'
 
-  // ── AC7 (US-007): Check if song hash was already minted ─────────────────────
-  // The audio_hash from the backend is a 0x-prefixed hex SHA-256 string.
-  // We convert it to a bytes32 value and query the contract's mintedHashes mapping.
-  const audioHashHex = result?.audio_hash ?? null
-  const { data: isSongAlreadyMinted } = useReadContract({
+  // ── AC7 (US-007) + AC5-acoustic: Check if song hash / fingerprint was already minted ────
+  // audio_hash = SHA-256 of raw file bytes (exact file duplicate)
+  // fingerprint_hash = Chromaprint acoustic fingerprint hash (acoustic duplicate)
+  const audioHashHex       = result?.audio_hash       ?? null
+  const fingerprintHashHex = result?.fingerprint_hash ?? null
+
+  const { data: isFileHashMinted } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI,
     functionName: 'mintedHashes',
@@ -56,6 +58,23 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
         CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000',
     },
   })
+
+  const { data: isFingerprintMinted } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: 'mintedFingerprints',
+    args: [fingerprintHashHex],
+    query: {
+      enabled:
+        !!fingerprintHashHex &&
+        CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000',
+    },
+  })
+
+  // Song is blocked if either the file hash OR the acoustic fingerprint is already on-chain
+  const isSongAlreadyMinted  = !!isFileHashMinted
+  const isAcousticDuplicate  = !!isFingerprintMinted && !isFileHashMinted
+  const isAnyDuplicate       = isSongAlreadyMinted || isAcousticDuplicate
 
   // ── Write: mint() ─────────────────────────────────────────────────────────
   const {
@@ -183,7 +202,8 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
             brightness: traits.brightness ?? 0,           // uint8 (0-255)
             genre: genreLabel,                            // string
           },
-          audioHashHex,                                  // bytes32 (FR-SC-002)
+          audioHashHex,                                  // bytes32 arg 4: FR-SC-002 exact file hash
+          fingerprintHashHex,                            // bytes32 arg 5: AC5-acoustic Chromaprint fingerprint
         ],
         value: mintPriceWei ?? parseEther('0.01'),
       },
@@ -200,7 +220,7 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
         },
       }
     )
-  }, [address, result, customName, mintPriceWei, writeContract, addNotification, audioHashHex])
+  }, [address, result, customName, mintPriceWei, writeContract, addNotification, audioHashHex, fingerprintHashHex])
 
   // ── Derived UI state ──────────────────────────────────────────────────────
   const isBusy = isWritePending || isConfirming
@@ -209,6 +229,7 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
   const buttonLabel = () => {
     if (!isConnected) return '🦊 Connect Wallet to Mint'
     if (!isOnSepolia) return '⚠ Switch to Sepolia'
+    if (isAcousticDuplicate) return '🚫 Acoustic Duplicate'
     if (isSongAlreadyMinted) return '🚫 Song Already Minted'
     if (isWritePending) return 'Confirm in MetaMask…'
     if (isConfirming) return 'Mining Transaction…'
@@ -256,7 +277,7 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
         </motion.div>
       )}
 
-      {/* ── AC7 (US-007): Song Already Minted error banner ── */}
+      {/* ── AC7 (US-007) + AC5-acoustic: Duplicate song error banners ── */}
       {isSongAlreadyMinted && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -271,6 +292,25 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
                 This exact audio file has already been minted as a SoundMint NFT.
                 Each song can only be minted once to preserve the uniqueness of the gallery.
                 Please go back and upload a different track.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+      {isAcousticDuplicate && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-orange-500/10 border border-orange-500/40 rounded-xl p-4 text-sm"
+        >
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">🎵</span>
+            <div>
+              <p className="font-bold text-orange-400 mb-1">Acoustic Duplicate Detected</p>
+              <p className="text-orange-400/70 text-xs leading-relaxed">
+                A sonically identical track has already been minted. Even though the file is
+                different (re-encoded, trimmed, or re-tagged), the audio content is the same.
+                The gallery only accepts unique original recordings.
               </p>
             </div>
           </div>
@@ -404,15 +444,15 @@ export default function MintScreen({ result, customName, onSuccess, onError, onB
         <button
           id="mint-nft-btn"
           onClick={handleMint}
-          disabled={!canMint || isBusy || isConfirmed || isContractPlaceholder || isSongAlreadyMinted}
+          disabled={!canMint || isBusy || isConfirmed || isContractPlaceholder || isAnyDuplicate}
           className="flex-1 relative text-white font-bold py-3 rounded-xl transition-all duration-200 text-sm disabled:opacity-40 disabled:cursor-not-allowed overflow-hidden"
           style={{
-            background: canMint && !isBusy && !isConfirmed && !isSongAlreadyMinted ? gradientBorder : undefined,
-            backgroundColor: (!canMint || isBusy || isConfirmed || isSongAlreadyMinted) ? '#333' : undefined,
+            background: canMint && !isBusy && !isConfirmed && !isAnyDuplicate ? gradientBorder : undefined,
+            backgroundColor: (!canMint || isBusy || isConfirmed || isAnyDuplicate) ? '#333' : undefined,
           }}
         >
           {/* Shimmer effect when idle + ready */}
-          {canMint && !isBusy && !isConfirmed && (
+          {canMint && !isBusy && !isConfirmed && !isAnyDuplicate && (
             <span
               className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity"
               style={{

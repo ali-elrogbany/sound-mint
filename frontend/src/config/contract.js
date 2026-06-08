@@ -122,7 +122,16 @@ export const CONTRACT_ABI = [
         type: "function",
     },
 
-    // ── Write: mint(address to, string ipfsURI, AudioTraits traits, bytes32 audioHash) ─
+    // ── Read: mintedFingerprints — check if acoustic fingerprint was minted (AC5-acoustic) ─
+    {
+        inputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+        name: "mintedFingerprints",
+        outputs: [{ internalType: "bool", name: "", type: "bool" }],
+        stateMutability: "view",
+        type: "function",
+    },
+
+    // ── Write: mint(address to, string ipfsURI, AudioTraits traits, bytes32 audioHash, bytes32 fingerprintHash) ─
     {
         inputs: [
             { internalType: "address", name: "to", type: "address" },
@@ -139,7 +148,8 @@ export const CONTRACT_ABI = [
                 name: "traits",
                 type: "tuple",
             },
-            { internalType: "bytes32", name: "audioHash", type: "bytes32" },  // FR-SC-002
+            { internalType: "bytes32", name: "audioHash", type: "bytes32" },        // FR-SC-002: exact file hash
+            { internalType: "bytes32", name: "fingerprintHash", type: "bytes32" },  // AC5-acoustic: Chromaprint fingerprint
         ],
         name: "mint",
         outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
