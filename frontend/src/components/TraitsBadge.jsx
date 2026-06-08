@@ -5,8 +5,8 @@ const ENERGY_COLOR = { low: 'text-muted', medium: 'text-secondary', high: 'text-
 export default function TraitsBadge({ traits }) {
   if (!traits) return null
   const { bpm_label, energy_label, key_name, bpm_rounded } = traits.display || {}
-  const shape = traits.visual_traits?.layer_3_particles || traits.visual_traits?.shape
-  const palette = traits.visual_traits?.layer_4_palette_base || traits.visual_traits?.color_palette || ['#A044FF', '#12D8FA']
+  const bg = traits.visual_traits?.layer_1_background || "Deep Space"
+  const palette = traits.visual_traits?.layer_6_palette_base || traits.visual_traits?.color_palette || ['#A044FF', '#12D8FA']
 
   return (
     <div className="flex flex-wrap gap-2 justify-center">
@@ -35,11 +35,11 @@ export default function TraitsBadge({ traits }) {
         />
       )}
 
-      {/* Shape */}
-      {shape && (
+      {/* Background/Type */}
+      {bg && (
         <Badge
-          icon={SHAPE_EMOJI[shape?.toLowerCase()] || '🔷'}
-          label={`Type: ${shape}`}
+          icon="🌌"
+          label={`Type: ${bg}`}
         />
       )}
 

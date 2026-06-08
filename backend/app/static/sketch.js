@@ -1,6 +1,6 @@
 /**
- * SoundMint — P5.js Generative Art Engine
- * 6-Layer Audio-Reactive System (13,500+ unique combinations)
+ * SoundMint — P5.js Overdrive Generative Art Engine (WEBGL)
+ * Incorporating 3D Camera, Fractals, Glitch, and Physics Layers.
  */
 
 const params = window.SOUND_PARAMS || {
@@ -14,284 +14,7 @@ const params = window.SOUND_PARAMS || {
   seed: 42,
 };
 
-// ── Layer 1: Backgrounds (Key 0-11) ─────────────────────────────────────────
-function drawBackground(p, keyIndex) {
-  p.background(10);
-  p.noStroke();
-  
-  const w = p.width;
-  const h = p.height;
-  
-  switch(keyIndex % 12) {
-    case 0: // Nebula (C)
-      for(let i=0; i<100; i++) {
-        p.fill(255, 100, 100, 10);
-        p.ellipse(p.random(w), p.random(h), p.random(100, 300));
-      }
-      break;
-    case 1: // Aurora (C#)
-      for(let i=0; i<h; i+=10) {
-        p.fill(255, 77, 166, p.noise(i * 0.01) * 30);
-        p.rect(0, i, w, 10);
-      }
-      break;
-    case 2: // Grid (D)
-      p.stroke(78, 205, 196, 40);
-      for(let i=0; i<w; i+=40) p.line(i, 0, i, h);
-      for(let j=0; j<h; j+=40) p.line(0, j, w, j);
-      p.noStroke();
-      break;
-    case 3: // Void (D#)
-      p.background(5); // pure dark
-      p.fill(255, 255, 255, 5);
-      p.ellipse(w/2, h/2, w*0.8);
-      break;
-    case 4: // Plasma (E)
-      for(let i=0; i<50; i++) {
-        p.fill(254, 214, 227, 15);
-        let x = p.noise(i) * w;
-        let y = p.noise(i+100) * h;
-        p.ellipse(x, y, 200);
-      }
-      break;
-    case 5: // Prism (F)
-      p.fill(247, 151, 30, 20);
-      p.triangle(w/2, 50, 50, h-50, w-50, h-50);
-      break;
-    case 6: // Storm (F#)
-      p.fill(131, 96, 195, 30);
-      for(let i=0; i<20; i++) p.ellipse(p.random(w), p.random(h/2), 150);
-      break;
-    case 7: // Coral (G)
-      p.background(30, 10, 40);
-      p.fill(106, 48, 147, 20);
-      p.rect(50, 50, w-100, h-100, 20);
-      break;
-    case 8: // Ember (G#)
-      p.background(40, 10, 10);
-      for(let i=0; i<200; i++) {
-        p.fill(255, 81, 47, 40);
-        p.ellipse(p.random(w), p.random(h, h+100), p.random(10, 40));
-      }
-      break;
-    case 9: // Frost (A)
-      p.background(10, 20, 40);
-      p.fill(31, 162, 255, 10);
-      p.quad(0,0, w,0, w,h/2, 0,h);
-      break;
-    case 10: // Forest (A#)
-      p.background(10, 30, 20);
-      p.fill(67, 233, 123, 15);
-      p.ellipse(w/2, h, w);
-      break;
-    case 11: // Dusk (B)
-      for(let i=0; i<h; i+=5) {
-        let inter = p.map(i, 0, h, 0, 1);
-        p.fill(p.lerpColor(p.color(249, 83, 198, 50), p.color(20, 10, 30, 50), inter));
-        p.rect(0, i, w, 5);
-      }
-      break;
-  }
-}
-
-// ── Layer 2: Motifs (BPM Class) ─────────────────────────────────────────────
-function drawMotif(p, bpm, c1, c2, t) {
-  p.push();
-  p.translate(p.width/2, p.height/2);
-  p.noFill();
-  p.strokeWeight(2);
-  
-  const size = p.width * 0.4;
-  
-  if (bpm < 80) { // Waveform
-    p.stroke(c1);
-    p.beginShape();
-    for(let x=-size; x<=size; x+=10) {
-      p.vertex(x, Math.sin((x+t*50)*0.05) * 50);
-    }
-    p.endShape();
-  } else if (bpm < 110) { // Mandala
-    p.stroke(c2);
-    for(let i=0; i<8; i++) {
-      p.rotate(p.PI/4);
-      p.ellipse(0, 50, size, size/3);
-    }
-  } else if (bpm < 140) { // Geometric burst
-    p.stroke(c1);
-    for(let i=0; i<12; i++) {
-      p.rotate(p.PI/6);
-      p.line(20, 0, size, 0);
-      p.triangle(size, 0, size-20, -10, size-20, 10);
-    }
-  } else if (bpm < 170) { // Spiral
-    p.stroke(c2);
-    p.beginShape();
-    for(let i=0; i<100; i++) {
-      let r = i * (size/100);
-      let theta = i * 0.2 + t;
-      p.vertex(r * Math.cos(theta), r * Math.sin(theta));
-    }
-    p.endShape();
-  } else { // Radial web
-    p.stroke(c1);
-    for(let i=0; i<10; i++) {
-      p.rotate(p.TWO_PI/10);
-      for(let r=20; r<size; r+=40) {
-        p.line(0, r, 0, r+20);
-        p.arc(0, 0, r*2, r*2, 0, p.TWO_PI/10);
-      }
-    }
-  }
-  p.pop();
-}
-
-// ── Layer 3, 4, 5: Particles (ZCR/Energy, Colors, Complexity) ───────────────
-class Particle {
-  constructor(p, w, h, idx) {
-    this.p = p;
-    this.w = w;
-    this.h = h;
-    this.idx = idx;
-    
-    // Trait mappings
-    this.energy = params.normalizedEnergy;
-    this.zcr = params.normalizedZcr;
-    this.complexity = params.normalizedComplexity;
-    this.animSpeed = params.bpm / 60.0;
-    
-    // Determine particle type (Layer 3)
-    if (this.energy > 0.7 && this.zcr > 0.4) this.type = "sparks";
-    else if (this.zcr > 0.3) this.type = "shards";
-    else if (this.energy < 0.4 && this.zcr < 0.2) this.type = "smoke";
-    else if (this.zcr < 0.2) this.type = "orbs";
-    else this.type = "ribbons";
-    
-    // Determine animation type (Layer 5)
-    if (this.complexity < 0.2) this.anim = "drift";
-    else if (this.complexity < 0.4) this.anim = "pulse";
-    else if (this.complexity < 0.6) this.anim = "flow";
-    else if (this.complexity < 0.8) this.anim = "orbit";
-    else this.anim = "bounce";
-
-    this.reset();
-  }
-
-  reset() {
-    this.x = this.p.random(this.w);
-    this.y = this.p.random(this.h);
-    this.vx = this.p.random(-1, 1);
-    this.vy = this.p.random(-1, 1);
-    this.baseX = this.x;
-    this.baseY = this.y;
-    this.phase = this.p.random(this.p.TWO_PI);
-    this.size = this.p.random(2, 10 + this.energy * 10);
-    this.colorT = this.p.random(1);
-    
-    // Flow/Orbit params
-    this.orbitR = this.p.random(20, 150);
-    this.angle = this.p.random(this.p.TWO_PI);
-  }
-
-  update(t) {
-    const spd = this.animSpeed * (0.5 + this.energy);
-    
-    switch(this.anim) {
-      case "drift":
-        this.x += this.vx * spd;
-        this.y += this.vy * spd;
-        if (this.x < 0) this.x = this.w;
-        if (this.x > this.w) this.x = 0;
-        if (this.y < 0) this.y = this.h;
-        if (this.y > this.h) this.y = 0;
-        break;
-      case "pulse":
-        let s = Math.sin(t * spd * 2 + this.phase);
-        this.x = this.baseX + this.vx * s * 50;
-        this.y = this.baseY + this.vy * s * 50;
-        break;
-      case "flow":
-        let angle = this.p.noise(this.x * 0.01, this.y * 0.01, t * 0.1) * this.p.TWO_PI * 4;
-        this.x += Math.cos(angle) * spd * 2;
-        this.y += Math.sin(angle) * spd * 2;
-        if (this.x < 0 || this.x > this.w || this.y < 0 || this.y > this.h) this.reset();
-        break;
-      case "orbit":
-        this.angle += spd * 0.02;
-        this.x = this.w/2 + Math.cos(this.angle + this.phase) * this.orbitR;
-        this.y = this.h/2 + Math.sin(this.angle + this.phase) * this.orbitR;
-        break;
-      case "bounce":
-        this.x += this.vx * spd * 5;
-        this.y += this.vy * spd * 5;
-        if (this.x < 0 || this.x > this.w) this.vx *= -1;
-        if (this.y < 0 || this.y > this.h) this.vy *= -1;
-        break;
-    }
-  }
-
-  draw(c1, c2, t) {
-    const p = this.p;
-    p.push();
-    p.translate(this.x, this.y);
-    
-    // Layer 4: Color interpolation
-    let col = p.lerpColor(c1, c2, this.colorT);
-    p.fill(col);
-    p.noStroke();
-
-    // Layer 3: Particle shape
-    switch(this.type) {
-      case "sparks":
-        p.rotate(t * 5 + this.phase);
-        p.rect(-1, -this.size, 2, this.size*2);
-        break;
-      case "shards":
-        p.rotate(this.phase);
-        p.triangle(0, -this.size, -this.size/2, this.size, this.size/2, this.size);
-        break;
-      case "smoke":
-        p.fill(p.red(col), p.green(col), p.blue(col), 50);
-        p.ellipse(0, 0, this.size * 4);
-        break;
-      case "orbs":
-        p.ellipse(0, 0, this.size);
-        p.fill(255, 150);
-        p.ellipse(-this.size/4, -this.size/4, this.size/3); // highlight
-        break;
-      case "ribbons":
-        p.stroke(col);
-        p.strokeWeight(this.size/2);
-        p.noFill();
-        p.bezier(0, 0, 10, 10, 20, Math.sin(t*2+this.phase)*20, 30, 0);
-        break;
-    }
-    p.pop();
-  }
-}
-
-// ── Layer 6: FX Overlays (Brightness) ───────────────────────────────────────
-function drawFX(p, brightness, t) {
-  const w = p.width;
-  const h = p.height;
-  
-  if (brightness > 0.7) { // Bloom glow
-    p.fill(255, 255, 255, 20 + Math.sin(t)*10);
-    p.blendMode(p.ADD);
-    p.rect(0, 0, w, h);
-    p.blendMode(p.BLEND);
-  } else if (brightness < 0.3) { // Chromatic scanlines
-    p.strokeWeight(1);
-    for(let y=0; y<h; y+=4) {
-      p.stroke(255, 0, 0, 20); // R
-      p.line(0, y, w, y);
-      p.stroke(0, 255, 255, 20); // GB
-      p.line(0, y+1, w, y+1);
-    }
-  }
-  // else None
-}
-
-// ── Main Sketch ─────────────────────────────────────────────────────────────
+// ── Overdrive Constants ───────────────────────────────────────────────────────
 const KEY_PALETTES = [
   ["#FF6B6B", "#FF8E53"], ["#FF4DA6", "#C62A88"], ["#4ECDC4", "#44A08D"],
   ["#A8FF78", "#78FFD6"], ["#FED6E3", "#A8EDEA"], ["#F7971E", "#FFD200"],
@@ -308,34 +31,52 @@ new p5(function (p) {
   let particles = [];
   let startTime;
   let frameId = 0;
-
+  let W, H;
+  
+  // Traits
+  let cameraType, geometryType, physicsType, glitchType;
+  
   p.setup = function () {
-    p.createCanvas(window.GIF_WIDTH || 600, window.GIF_HEIGHT || 600);
+    W = window.GIF_WIDTH || 600;
+    H = window.GIF_HEIGHT || 600;
+    p.createCanvas(W, H, p.WEBGL);
     p.randomSeed(params.seed);
     p.noiseSeed(params.seed);
-    p.frameRate(12);
+    p.frameRate(15);
+    p.setAttributes('antialias', true);
 
-    // Layer 4: Color palette modification based on brightness
+    // Color Setup
     let basePal = KEY_PALETTES[params.keyIndex % 12];
-    let rgb1 = hexToRgb(basePal[0]);
-    let rgb2 = hexToRgb(basePal[1]);
-    
-    // Brightness tier adjustment (3 tiers)
-    if (params.normalizedCentroid < 0.33) {
-      rgb1 = rgb1.map(v => v * 0.5); // Darken
-      rgb2 = rgb2.map(v => v * 0.5);
-    } else if (params.normalizedCentroid > 0.66) {
-      rgb1 = rgb1.map(v => Math.min(255, v + 50)); // Lighten
-      rgb2 = rgb2.map(v => Math.min(255, v + 50));
-    }
-    
-    c1 = p.color(...rgb1);
-    c2 = p.color(...rgb2);
+    c1 = p.color(...hexToRgb(basePal[0]));
+    c2 = p.color(...hexToRgb(basePal[1]));
 
-    // Init particles
-    const pCount = Math.round(params.normalizedEnergy * 800) + 50;
+    // Determine Logic
+    cameraType = Math.floor(params.seed / 20) % 8;
+
+    // Use the perfectly uniform cryptographic seed to ensure absolute variety in shapes
+    geometryType = params.seed % 10;
+
+    if (params.normalizedEnergy < 0.4) physicsType = 0;
+    else if (params.normalizedEnergy < 0.7) physicsType = 1;
+    else physicsType = 2;
+
+    if (params.normalizedZcr > 0.4) glitchType = 2;
+    else if (params.normalizedZcr > 0.2) glitchType = 1;
+    else glitchType = 0;
+
+    // Particles - Significantly reduced count for WebGL performance in headless
+    const pCount = Math.round(params.normalizedEnergy * 300) + 50;
     for(let i=0; i<pCount; i++) {
-      particles.push(new Particle(p, p.width, p.height, i));
+      particles.push({
+        x: p.random(-W, W),
+        y: p.random(-H, H),
+        z: p.random(-W, W),
+        vx: p.random(-2, 2),
+        vy: p.random(-2, 2),
+        vz: p.random(-2, 2),
+        mass: p.random(1, 4),
+        col: p.lerpColor(c1, c2, p.random(1))
+      });
     }
     
     startTime = p.millis();
@@ -344,15 +85,261 @@ new p5(function (p) {
   p.draw = function () {
     const t = (p.millis() - startTime) / 1000.0;
     
-    drawBackground(p, params.keyIndex);
-    drawMotif(p, params.bpm, c1, c2, t);
+    // Clear background
+    p.background(15, 10, 20);
     
-    for (const part of particles) {
-      part.update(t);
-      part.draw(c1, c2, t);
+    // Lighting
+    p.ambientLight(80);
+    p.pointLight(p.red(c1), p.green(c1), p.blue(c1), 300, -300, 300);
+    p.pointLight(p.red(c2), p.green(c2), p.blue(c2), -300, 300, -300);
+
+    // ── 1. Camera Logic ──
+    p.camera(0, 0, 500, 0, 0, 0, 0, 1, 0); // Reset camera base
+    if (cameraType === 0) { // Cinematic
+      p.camera(Math.sin(t*0.5)*300, Math.cos(t*0.5)*300, 400 + Math.sin(t*0.2)*100, 0, 0, 0, 0, 1, 0);
+    } else if (cameraType === 1) { // Orbital
+      p.camera(Math.cos(t)*300, -200, Math.sin(t)*300, 0, 0, 0, 0, 1, 0);
+    } else if (cameraType === 2) { // Vortex
+      p.camera(0, 0, 600 - t*100, 0, 0, 0, 0, 1, 0);
+      p.rotateZ(t);
+    } else if (cameraType === 3) { // Jitter
+      p.camera(p.random(-10, 10), p.random(-10, 10), 400, 0, 0, 0, 0, 1, 0);
+    } else if (cameraType === 4) { // Z-Axis Rush
+      p.camera(0, 0, 800 - ((t*200) % 600), 0, 0, 0, 0, 1, 0);
+    } else if (cameraType === 5) { // Top-Down Spin
+      p.camera(Math.cos(t*0.8)*200, -500, Math.sin(t*0.8)*200, 0, 0, 0, 0, 1, 0);
+    } else if (cameraType === 6) { // Drone Fly-through
+      p.camera(Math.sin(t*1.2)*200, Math.cos(t*0.7)*150 - 150, 400, 0, 0, 0, 0, 1, 0);
+    } else { // Isometric Stare
+      p.camera(400, -400, 400, 0, 0, 0, 0, 1, 0);
     }
+
+    // ── 2. Geometry Logic ──
+    p.push();
+    p.rotateX(t * 0.5);
+    p.rotateY(t * 0.3);
+    p.noFill();
+    p.strokeWeight(1.5);
     
-    drawFX(p, params.normalizedCentroid, t);
+    if (glitchType === 2 && p.frameCount % 5 === 0) {
+      p.stroke(255, 0, 0);
+      p.translate(p.random(-10, 10), 0, 0);
+    } else {
+      p.stroke(c1);
+    }
+
+    if (geometryType === 0) {
+      p.sphere(120, 8, 8); // Sacred Sphere
+    } else if (geometryType === 1) {
+      p.torus(100, 30, 16, 12); // Quantum Torus
+    } else if (geometryType === 2) { 
+      for(let i=0; i<8; i++) {
+        p.push();
+        p.rotateX(i * p.TWO_PI/8);
+        p.translate(0, 80, 0);
+        p.box(20, 80, 20); // Hexa-Star
+        p.pop();
+      }
+    } else if (geometryType === 3) { 
+      p.beginShape();
+      for(let i=0; i<80; i++) {
+        p.vertex(Math.sin(i*0.1 + t)*120, Math.cos(i*0.13)*120, Math.sin(i*0.17 + t)*120);
+      }
+      p.endShape(); // Chaos Attractor
+    } else if (geometryType === 4) { 
+      p.beginShape();
+      for(let i=0; i<150; i++) {
+        let r = i * 0.8;
+        let th = i * 0.1 + t;
+        p.vertex(r * Math.cos(th), r * Math.sin(th), i * 2 - 150);
+      }
+      p.endShape(); // Recursive Spiral
+    } else if (geometryType === 5) {
+      p.cylinder(60, 160, 6, 1);
+      p.push();
+      p.rotateX(p.HALF_PI);
+      p.cylinder(60, 160, 6, 1);
+      p.pop(); // Crystal Matrix
+    } else if (geometryType === 6) {
+      for(let i=0; i<5; i++) {
+        p.push();
+        p.rotateX(t + i);
+        p.rotateY(t*1.5 + i);
+        p.torus(40 + i*25, 2, 24, 4);
+        p.pop();
+      } // Nested Rings
+    } else if (geometryType === 7) {
+      p.beginShape(p.POINTS);
+      p.strokeWeight(4);
+      for(let i=-80; i<80; i+=3) {
+        let th = i * 0.2 + t*2;
+        p.vertex(Math.sin(th)*60, i*2.5, Math.cos(th)*60);
+        p.vertex(Math.sin(th + Math.PI)*60, i*2.5, Math.cos(th + Math.PI)*60);
+      }
+      p.endShape(); // DNA Helix
+    } else if (geometryType === 8) {
+      for(let i=0; i<6; i++) {
+        p.push();
+        p.rotateY(i * p.TWO_PI/6 + t);
+        p.rotateX(Math.PI/4);
+        p.translate(0, 90, 0);
+        p.cone(40, 120, 4, 1);
+        p.pop();
+      } // Crown of Thorns
+    } else if (geometryType === 9) {
+      for(let i=0; i<12; i++) {
+        p.push();
+        p.rotateX(i * 2.39996 + t*0.5); // Golden angle
+        p.rotateY(i * 1.57079 + t*0.3);
+        p.translate(0, 70, 0);
+        p.box(10, 140, 10);
+        p.pop();
+      } // Supernova Spikes
+    } else if (geometryType === 10) {
+      for(let i=0; i<4; i++) {
+        p.push();
+        p.rotateX(t*(i%2==0?1:-1));
+        p.rotateY(t*0.5);
+        p.box(40 + i*25);
+        p.pop();
+      } // Tesseract
+    } else if (geometryType === 11) {
+      p.beginShape(p.TRIANGLE_STRIP);
+      for(let i=0; i<=30; i++) {
+        let u = i * p.TWO_PI / 30;
+        let x1 = (100 + 40 * Math.cos(u/2 + t)) * Math.cos(u);
+        let y1 = (100 + 40 * Math.cos(u/2 + t)) * Math.sin(u);
+        let z1 = 40 * Math.sin(u/2 + t);
+        p.vertex(x1, y1, z1);
+        let x2 = (100 - 40 * Math.cos(u/2 + t)) * Math.cos(u);
+        let y2 = (100 - 40 * Math.cos(u/2 + t)) * Math.sin(u);
+        let z2 = -40 * Math.sin(u/2 + t);
+        p.vertex(x2, y2, z2);
+      }
+      p.endShape(); // Mobius Strip
+    } else if (geometryType === 12) {
+      p.sphere(100, 4, 3); // Low-Poly Icosahedron
+    } else if (geometryType === 13) {
+      for(let i=0; i<6; i++) {
+        p.push();
+        p.rotateX(i * p.TWO_PI/6 + t);
+        p.translate(0, 50, 0);
+        p.cone(50, 80, 4, 1);
+        p.pop();
+      } // Pyramid Cluster
+    } else if (geometryType === 14) {
+      p.beginShape();
+      for(let i=0; i<100; i++) {
+        let th = i * 0.1;
+        p.vertex(100 * Math.sin(3*th + t), 100 * Math.sin(4*th + t*1.2), 100 * Math.cos(5*th + t*0.8));
+      }
+      p.endShape(); // Lissajous Curve
+    } else if (geometryType === 15) {
+      for(let i=1; i<=4; i++) {
+        p.push();
+        p.rotateX(p.HALF_PI);
+        let r = (t * 50 + i * 40) % 200;
+        p.torus(r, 2, 24, 3);
+        p.pop();
+      } // Pulsar Waves
+    } else if (geometryType === 16) {
+      for(let x=-1; x<=1; x+=2) {
+        for(let y=-1; y<=1; y+=2) {
+          p.push();
+          p.translate(x*50, y*50, 0);
+          p.rotateX(t); p.rotateY(t);
+          p.cone(30, 60, 4, 1);
+          p.rotateX(Math.PI);
+          p.cone(30, 60, 4, 1);
+          p.pop();
+        }
+      } // Diamond Matrix
+    } else if (geometryType === 17) {
+      p.push();
+      p.rotateX(p.HALF_PI);
+      p.translate(-100, -100, -50);
+      for(let x=0; x<5; x++) {
+        p.beginShape(p.LINES);
+        for(let y=0; y<5; y++) {
+          p.vertex(x*50, y*50, Math.sin(x + y + t)*20);
+        }
+        p.endShape();
+      }
+      p.pop(); // Wireframe Terrain
+    } else if (geometryType === 18) {
+      p.sphere(40, 8, 8);
+      for(let i=0; i<3; i++) {
+        p.push();
+        p.rotateY(t*(i+1) + i*2);
+        p.translate(100 + i*20, 0, 0);
+        p.sphere(15, 6, 6);
+        p.pop();
+      } // Orbiting Moons
+    } else {
+      for(let i=0; i<8; i++) {
+        p.push();
+        p.rotateZ(i * p.TWO_PI/8 + t);
+        p.translate(0, 60, 0);
+        p.cylinder(10, 80, 5, 1);
+        p.translate(0, 40, 0);
+        p.rotateX(t*2);
+        p.cylinder(5, 40, 5, 1);
+        p.pop();
+      } // Cylinder Fractal
+    }
+    p.pop();
+
+    // ── 3. Physics / Particles ──
+    p.noStroke();
+    
+    // Use boxes instead of spheres for massive performance boost
+    for (let i = 0; i < particles.length; i++) {
+      let pt = particles[i];
+      
+      if (physicsType === 0) { // Floating embers
+        pt.y -= pt.mass * 2;
+        pt.x += Math.sin(t + pt.mass) * 2;
+      } else if (physicsType === 1) { // Whirlpool
+        let angle = Math.atan2(pt.y, pt.x);
+        let dist = Math.sqrt(pt.x*pt.x + pt.y*pt.y);
+        pt.x -= Math.sin(angle) * 10 - Math.cos(angle) * 2;
+        pt.y += Math.cos(angle) * 10 - Math.sin(angle) * 2;
+        pt.z += Math.sin(t + dist*0.01) * 5;
+      } else { // Black Hole
+        let dist = Math.sqrt(pt.x*pt.x + pt.y*pt.y + pt.z*pt.z);
+        if (dist > 10) {
+          pt.x -= (pt.x / dist) * 15;
+          pt.y -= (pt.y / dist) * 15;
+          pt.z -= (pt.z / dist) * 15;
+        }
+      }
+
+      // Reset out of bounds
+      if (Math.abs(pt.x) > W || Math.abs(pt.y) > H || Math.abs(pt.z) > W) {
+        pt.x = p.random(-W, W);
+        pt.y = p.random(-H, H);
+        pt.z = p.random(-W, W);
+      }
+
+      p.push();
+      p.translate(pt.x, pt.y, pt.z);
+      if (glitchType === 2 && i % 5 === 0) {
+         p.fill(0, 255, 255); 
+      } else {
+         p.fill(pt.col);
+      }
+      p.box(pt.mass * 2); // Fast geometry
+      p.pop();
+    }
+
+    // ── 4. Glitch Overlay ──
+    if (glitchType === 1 && p.frameCount % 4 === 0) {
+      p.push();
+      p.translate(0, 0, 450); // In front of camera
+      p.fill(255, 255, 255, 50);
+      p.plane(W*2, 10);
+      p.pop();
+    }
 
     frameId++;
     if (typeof window.onFrameReady === "function") {

@@ -121,7 +121,6 @@ async def generate(
         "args": [
             "--no-sandbox",
             "--disable-setuid-sandbox",
-            "--disable-gpu",
             "--disable-dev-shm-usage",
             f"--window-size={W},{H}",
         ]
@@ -135,6 +134,8 @@ async def generate(
     browser = await launch(**launch_args)
 
     page = await browser.newPage()
+    page.on('console', lambda msg: print(f"BROWSER CONSOLE: {msg.text}"))
+    page.on('pageerror', lambda err: print(f"BROWSER ERROR: {err}"))
     await page.setViewport({"width": W, "height": H})
 
     # Serve the sketch.js via the FastAPI static route for P5 fetch
@@ -202,41 +203,42 @@ async def generate(
     elapsed_ms = round((time.time() - start_time) * 1000)
     gif_size = os.path.getsize(output_gif_path)
 
-    # Build visual traits summary (mapped to the 6 layers)
+    # Build visual traits summary (mapped to the new Overdrive layers)
     norm = audio_features.get("normalized", {})
     raw = audio_features.get("raw", {})
     
-    # These helpers match the logic in the new sketch.js
-    def get_motif(bpm):
-        if bpm < 80: return "Waveform"
-        if bpm < 110: return "Mandala"
-        if bpm < 140: return "Geometric burst"
-        if bpm < 170: return "Spiral"
-        return "Radial web"
+    def get_camera(seed):
+        cams = [
+            "Cinematic Pan", "Orbital Focus", "Vortex Tunnel", "Jitter & Shake",
+            "Z-Axis Rush", "Top-Down Spin", "Drone Fly-through", "Isometric Stare"
+        ]
+        return cams[(seed // 20) % 8]
 
-    def get_particles(zcr, energy):
-        if energy > 0.7 and zcr > 0.4: return "Sparks"
-        if zcr > 0.3: return "Shards"
-        if energy < 0.4 and zcr < 0.2: return "Smoke"
-        if zcr < 0.2: return "Orbs"
-        return "Ribbons"
+    def get_geometry(seed):
+        shapes = [
+            "Sacred Sphere", "Quantum Torus", "Hexa-Star", "Chaos Attractor", 
+            "Recursive Spiral", "Crystal Matrix", "Nested Rings", "DNA Helix",
+            "Crown of Thorns", "Supernova Spikes", "Tesseract", "Mobius Strip",
+            "Low-Poly Icosahedron", "Pyramid Cluster", "Lissajous Curve", 
+            "Pulsar Waves", "Diamond Matrix", "Wireframe Terrain", 
+            "Orbiting Moons", "Cylinder Fractal"
+        ]
+        return shapes[seed % 20]
 
-    def get_animation(complexity):
-        if complexity < 0.2: return "Drift"
-        if complexity < 0.4: return "Pulse"
-        if complexity < 0.6: return "Flow field"
-        if complexity < 0.8: return "Orbit"
-        return "Bounce"
+    def get_physics(energy):
+        if energy < 0.4: return "Floating Embers"
+        if energy < 0.7: return "Fluid Whirlpool"
+        return "Black Hole Gravity"
+
+    def get_glitch(zcr):
+        if zcr > 0.4: return "Pixel Sort + RGB Split"
+        if zcr > 0.2: return "VHS Tear"
+        return "Clean"
         
     def get_background(key):
-        bgs = ["Nebula", "Aurora", "Grid", "Void", "Plasma", "Prism", 
-               "Storm", "Coral", "Ember", "Frost", "Forest", "Dusk"]
+        bgs = ["Deep Space", "Aurora Borealis", "Cyber Grid", "The Void", "Plasma Core", "Crystalline", 
+               "Ion Storm", "Bioluminescence", "Dying Star", "Glacier", "Neon Forest", "Dusk Horizon"]
         return bgs[key % 12]
-
-    def get_fx(brightness):
-        if brightness > 0.7: return "Bloom glow"
-        if brightness < 0.3: return "Chromatic scanlines"
-        return "None"
 
     key_index = raw.get("dominant_key_index", 0)
     bpm = raw.get("bpm", 120)
@@ -244,18 +246,19 @@ async def generate(
     energy = norm.get("energy", 0.5)
     complexity = norm.get("complexity", 0.5)
     brightness = norm.get("brightness", 0.5)
+    seed_hash = audio_features.get("audio_hash", "0x00000000")
+    seed = int(seed_hash[2:10] if seed_hash.startswith("0x") else seed_hash[:8], 16)
 
     visual_traits = {
         "layer_1_background": get_background(key_index),
-        "layer_2_motif": get_motif(bpm),
-        "layer_3_particles": get_particles(zcr, energy),
-        "layer_4_palette_base": KEY_PALETTES[key_index % 12],
-        "layer_5_animation": get_animation(complexity),
-        "layer_6_fx": get_fx(brightness),
+        "layer_2_camera": get_camera(seed),
+        "layer_3_geometry": get_geometry(seed),
+        "layer_4_physics": get_physics(energy),
+        "layer_5_glitch": get_glitch(zcr),
+        "layer_6_palette_base": KEY_PALETTES[key_index % 12],
         "brightness_label": _brightness_label(brightness),
-        # Keep some raw values for debugging/frontend
         "animation_speed": round(bpm / 60.0, 3),
-        "particle_count": round(energy * 800) + 50,
+        "particle_count": round(energy * 1200) + 200,
     }
 
     return {

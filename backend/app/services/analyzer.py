@@ -122,32 +122,52 @@ def analyze(file_path: str, session_id: str, file_name: str) -> dict:
         # BPM — use plp() as fallback if beat_track returns 0
         tempo_arr, _ = librosa.beat.beat_track(y=y, sr=sr)
         bpm = float(np.atleast_1d(tempo_arr)[0])
-        if bpm < 40:
+        if bpm < 40 or np.isnan(bpm) or np.isinf(bpm):
             # Fallback: predominant local pulse
-            pulse = librosa.beat.plp(y=y, sr=sr)
-            bpm_estimate = librosa.tempo_frequencies(len(pulse), sr=sr)
-            bpm = float(bpm_estimate[np.argmax(pulse)])
+            try:
+                pulse = librosa.beat.plp(y=y, sr=sr)
+                bpm_estimate = librosa.tempo_frequencies(len(pulse), sr=sr)
+                bpm = float(bpm_estimate[np.argmax(pulse)])
+            except Exception:
+                bpm = 120.0
+                
+        # Final safety check for bpm
+        if np.isnan(bpm) or np.isinf(bpm):
+            bpm = 120.0
         bpm = max(40.0, bpm)  # floor at 40 BPM
 
+        def safe_float(val, default=0.0):
+            val = float(val)
+            if np.isnan(val) or np.isinf(val):
+                return default
+            return val
+
         # RMS energy (mean across frames)
-        rms = float(np.mean(librosa.feature.rms(y=y)))
+        rms = safe_float(np.mean(librosa.feature.rms(y=y)))
 
         # Spectral centroid (mean across frames)
-        centroid = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
+        centroid = safe_float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
 
         # Spectral rolloff (mean across frames)
-        rolloff = float(np.mean(librosa.feature.spectral_rolloff(y=y, sr=sr)))
+        rolloff = safe_float(np.mean(librosa.feature.spectral_rolloff(y=y, sr=sr)))
 
         # Zero-crossing rate (mean across frames)
-        zcr = float(np.mean(librosa.feature.zero_crossing_rate(y=y)))
+        zcr = safe_float(np.mean(librosa.feature.zero_crossing_rate(y=y)))
 
         # MFCC — 13 coefficients (mean across frames)
-        mfcc_matrix = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-        mfcc = [float(np.mean(c)) for c in mfcc_matrix]
+        try:
+            mfcc_matrix = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+            mfcc = [safe_float(np.mean(c)) for c in mfcc_matrix]
+        except Exception:
+            mfcc = [0.0] * 13
 
         # Chroma → dominant key (index 0–11)
-        chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-        dominant_key_index = int(np.argmax(np.mean(chroma, axis=1)))
+        try:
+            chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+            dominant_key_index = int(np.argmax(np.mean(chroma, axis=1)))
+        except Exception:
+            dominant_key_index = 0
+            
         dominant_key_name = KEY_NAMES[dominant_key_index]
 
     except Exception as exc:
