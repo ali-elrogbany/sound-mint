@@ -96,10 +96,11 @@ export default function NFTPreviewCard({ result, customName, onNameChange, onReg
 
         {/* Extra numeric traits */}
         {visual_traits && (
-          <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t border-white/5">
-            <StatBox label="Particles" value={visual_traits.particle_count?.toLocaleString()} />
-            <StatBox label="Anim Speed" value={`${visual_traits.animation_speed}×`} />
-            <StatBox label="Glow" value={`${visual_traits.glow_intensity?.toFixed(1)}px`} />
+          <div className="grid grid-cols-2 gap-3 mt-5 pt-5 border-t border-white/5">
+            <StatBox label="Motif" value={visual_traits.layer_2_motif || "Waveform"} />
+            <StatBox label="Animation" value={visual_traits.layer_5_animation || "Drift"} />
+            <StatBox label="FX" value={visual_traits.layer_6_fx || "None"} />
+            <StatBox label="Background" value={visual_traits.layer_1_background || "Void"} />
           </div>
         )}
       </motion.div>

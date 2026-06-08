@@ -1,12 +1,12 @@
-const SHAPE_EMOJI = { circles: '⭕', polygons: '⬡', triangles: '🔺' }
+const SHAPE_EMOJI = { sparks: '✨', shards: '💥', smoke: '💨', orbs: '🔮', ribbons: '🎗️', circles: '⭕', polygons: '⬡', triangles: '🔺' }
 const BPM_COLOR = { Slow: 'text-secondary', Moderate: 'text-primary', Fast: 'text-yellow-400', Hyperspeed: 'text-error' }
 const ENERGY_COLOR = { low: 'text-muted', medium: 'text-secondary', high: 'text-success' }
 
 export default function TraitsBadge({ traits }) {
   if (!traits) return null
   const { bpm_label, energy_label, key_name, bpm_rounded } = traits.display || {}
-  const { shape } = traits.visual_traits || {}
-  const palette = traits.visual_traits?.color_palette || ['#A044FF', '#12D8FA']
+  const shape = traits.visual_traits?.layer_3_particles || traits.visual_traits?.shape
+  const palette = traits.visual_traits?.layer_4_palette_base || traits.visual_traits?.color_palette || ['#A044FF', '#12D8FA']
 
   return (
     <div className="flex flex-wrap gap-2 justify-center">
@@ -38,8 +38,8 @@ export default function TraitsBadge({ traits }) {
       {/* Shape */}
       {shape && (
         <Badge
-          icon={SHAPE_EMOJI[shape] || '🔷'}
-          label={`Shape: ${shape}`}
+          icon={SHAPE_EMOJI[shape?.toLowerCase()] || '🔷'}
+          label={`Type: ${shape}`}
         />
       )}
 
