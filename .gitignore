@@ -34,6 +34,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!frontend/src/lib/
+!frontend/src/lib/**
 lib64/
 parts/
 sdist/
@@ -70,7 +72,6 @@ coverage.json
 .env.test.local
 .env.production.local
 *.env
-*.env.*
 
 # OS / IDE
 .DS_Store
