@@ -38,7 +38,6 @@ API docs available at: `http://localhost:8000/docs`
 
 ```bash
 cd frontend
-cp .env.example .env
 npm install
 npm run dev
 ```
@@ -63,10 +62,10 @@ Browser (React) ──HTTPS──▶ FastAPI Backend
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18, Vite 5, TailwindCSS 3, wagmi 2, WaveSurfer.js 7 |
-| Backend | FastAPI, Python 3.11, Librosa, Pyppeteer |
-| Blockchain | Solidity 0.8.20, Hardhat 2, OpenZeppelin 5 |
-| Storage | IPFS via Pinata |
-| Network | Ethereum Sepolia Testnet (Chain ID: 11155111) |
+| Layer      | Technology                                                |
+| ---------- | --------------------------------------------------------- |
+| Frontend   | React 18, Vite 5, TailwindCSS 3, wagmi 2, WaveSurfer.js 7 |
+| Backend    | FastAPI, Python 3.11, Librosa, Pyppeteer                  |
+| Blockchain | Solidity 0.8.20, Hardhat 2, OpenZeppelin 5                |
+| Storage    | IPFS via Pinata                                           |
+| Network    | Ethereum Sepolia Testnet (Chain ID: 11155111)             |
